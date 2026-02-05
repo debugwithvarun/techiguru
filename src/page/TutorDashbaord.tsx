@@ -3,7 +3,8 @@ import {
   LayoutDashboard, BookOpen, PlusCircle, Video, 
   Settings, LogOut, Trash2, Edit2, Save, DollarSign, 
   Users, Clock, BarChart3, Search, Filter, XCircle, 
-  User, Mail, Phone, MapPin, X, CheckCircle, AlertCircle
+  User, Mail, Phone, MapPin, X, CheckCircle, AlertCircle,
+  Upload, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -30,7 +31,7 @@ interface CourseData {
   price: string;
   category: string;
   status: 'Active' | 'Inactive' | 'Draft';
-  thumbnail: any | null; 
+  thumbnail: string | null; // Stores URL string for preview
   topics: TopicItem[];
 }
 
@@ -41,6 +42,7 @@ interface CourseListItem {
   rating: number;
   status: 'Active' | 'Inactive' | 'Draft';
   price: string;
+  thumbnail?: string | null;
   topics?: TopicItem[];
   description?: string;
   category?: string;
@@ -84,6 +86,7 @@ const INITIAL_COURSES: CourseListItem[] = [
     rating: 4.8, 
     status: 'Active', 
     price: '$49',
+    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=200&auto=format&fit=crop',
     description: 'Learn React from scratch.',
     category: 'web-dev',
     topics: [
@@ -101,6 +104,7 @@ const INITIAL_COURSES: CourseListItem[] = [
     rating: 4.9, 
     status: 'Active', 
     price: '$59',
+    thumbnail: 'https://images.unsplash.com/photo-1627398242450-8df416333c38?q=80&w=200&auto=format&fit=crop',
     description: 'Master Node.js backend.',
     category: 'web-dev',
     topics: []
@@ -112,6 +116,7 @@ const INITIAL_COURSES: CourseListItem[] = [
     rating: 0, 
     status: 'Inactive', 
     price: '$29',
+    thumbnail: null, // No image example
     description: 'Start your coding journey.',
     category: 'data-science',
     topics: []
@@ -138,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
     { id: 'active_courses', label: 'Active Courses', icon: BookOpen },
     { id: 'inactive_courses', label: 'Drafts / Inactive', icon: FileIcon },
     { id: 'add_course', label: 'Create New Course', icon: PlusCircle },
-    { id: 'profile', label: 'My Profile', icon: User },
+    { id: 'profile', label: 'My Profile', icon: User }, 
   ];
 
   return (
@@ -192,7 +197,7 @@ const CourseBuilder: React.FC<CourseBuilderProps> = ({ initialData, onSave, onCa
          price: initialData.price,
          category: initialData.category || '',
          status: initialData.status,
-         thumbnail: null,
+         thumbnail: initialData.thumbnail || null,
          topics: initialData.topics || [] 
        };
      }
@@ -206,6 +211,21 @@ const CourseBuilder: React.FC<CourseBuilderProps> = ({ initialData, onSave, onCa
       topics: [{ id: Date.now(), title: '', videos: [] }]
     };
   });
+
+  // --- Handlers ---
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      // Create a fake local URL for preview purposes
+      const previewUrl = URL.createObjectURL(file);
+      setCourseData(prev => ({ ...prev, thumbnail: previewUrl }));
+    }
+  };
+
+  const removeThumbnail = () => {
+    setCourseData(prev => ({ ...prev, thumbnail: null }));
+  };
 
   const handleAddTopic = () => {
     setCourseData(prev => ({
@@ -291,6 +311,36 @@ const CourseBuilder: React.FC<CourseBuilderProps> = ({ initialData, onSave, onCa
                 </h3>
                 
                 <div className="space-y-4">
+                    {/* Thumbnail Upload */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Thumbnail</label>
+                        <div className="relative w-full aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center hover:border-purple-300 transition-colors group">
+                            {courseData.thumbnail ? (
+                                <>
+                                    <img src={courseData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
+                                    <button 
+                                        onClick={removeThumbnail}
+                                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove Image"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                </>
+                            ) : (
+                                <div className="text-center p-4">
+                                    <Upload size={24} className="text-slate-400 mx-auto mb-2" />
+                                    <p className="text-xs text-slate-500">Click to upload image</p>
+                                </div>
+                            )}
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                onChange={handleThumbnailChange}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Title</label>
                         <input 
@@ -467,8 +517,15 @@ const CourseList: React.FC<CourseListProps> = ({ status, courses, onEdit, onDele
               <tr key={course.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/30 transition-colors group">
                 <td className="p-5">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-100 to-blue-100 border border-slate-100 flex items-center justify-center text-purple-600 font-bold text-xs">
-                        {course.title.substring(0,2).toUpperCase()}
+                    {/* THUMBNAIL DISPLAY */}
+                    <div className="w-16 h-10 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
+                        {course.thumbnail ? (
+                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-purple-50 text-purple-300">
+                                <ImageIcon size={16} />
+                            </div>
+                        )}
                     </div>
                     <div>
                         <span className="block font-bold text-slate-800 text-sm">{course.title}</span>

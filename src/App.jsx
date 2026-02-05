@@ -36,7 +36,7 @@ function App() {
         {/* 3. Routes that SHOULD NOT have Navbar & Footer */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-          <Route path="/tutor-dashboard" element={<TutorDashboard />} />
+          <Route path="/about" element={<TutorDashboard />} />
 
       </Routes>
     </Router>

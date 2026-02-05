@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from "react-router-dom"; // Added useLocation
+import { Link, useLocation } from "react-router-dom";
 import { 
   Search, ShoppingCart, ChevronDown, ChevronRight, 
-  LogIn, Menu, X, Globe, BookOpen, Smartphone 
+  LogIn, Menu, X, Globe, BookOpen, Smartphone, PlayCircle, PauseCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -13,33 +13,27 @@ const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // 1. Get current location
   const location = useLocation();
-
-  // 2. List of paths where Navbar should be hidden
   const hideNavbarPaths = ['/login', '/signup'];
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // 3. Return null (render nothing) if current path is in the hide list
-  if (hideNavbarPaths.includes(location.pathname)) {
-    return null;
-  }
+  if (hideNavbarPaths.includes(location.pathname)) return null;
 
+  // --- UPDATED NAVIGATION STRUCTURE ---
   const navLinks = [
     { name: 'Home', path: '/', hasDropdown: false },
     { 
       name: 'Courses', 
       hasDropdown: true, 
       dropdownItems: [
-        { title: 'Full Stack Dev', icon: <Globe size={16}/> }, 
-        { title: 'AI & Machine Learning', icon: <BookOpen size={16}/> }, 
-        { title: 'Mobile Development', icon: <Smartphone size={16}/> }
+        { title: 'Full Stack Dev', path: '/courses/fullstack', icon: <Globe size={16}/> }, 
+        { title: 'AI & Machine Learning', path: '/courses/ai', icon: <BookOpen size={16}/> }, 
+        { title: 'Mobile Development', path: '/courses/mobile', icon: <Smartphone size={16}/> }
       ] 
     },
     { name: 'About Us', path: '/about', hasDropdown: false },
@@ -47,8 +41,9 @@ const Navbar = () => {
       name: 'Training', 
       hasDropdown: true, 
       dropdownItems: [
-        { title: 'Corporate Training', icon: <ChevronRight size={16}/> }, 
-        { title: 'Student Internships', icon: <ChevronRight size={16}/> }
+        // LINKED TO YOUR ROUTES HERE
+        { title: 'Active Courses', path: '/active-course', icon: <PlayCircle size={16}/> }, 
+        { title: 'Inactive Courses', path: '/inactive-course', icon: <PauseCircle size={16}/> }
       ] 
     },
     { name: 'Contact', path: '/contact', hasDropdown: false },
@@ -117,7 +112,7 @@ const Navbar = () => {
                         {link.dropdownItems.map((item, idx) => (
                           <Link
                             key={idx}
-                            to="#"
+                            to={item.path} // USING THE PATH HERE
                             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-purple-50 hover:text-purple-700 transition-colors group"
                           >
                             <span className="text-purple-400 group-hover:text-purple-600">
@@ -159,7 +154,7 @@ const Navbar = () => {
               </button>
             </div>
 
-            {/* Auth State - Updated Links */}
+            {/* Auth State */}
             {isLoggedIn ? (
               <div className="flex items-center gap-4 pl-4 border-l border-gray-200">
                 <div className="relative cursor-pointer group">
@@ -299,7 +294,7 @@ const MobileDropdown = ({ link }) => {
               {link.dropdownItems.map((item, idx) => (
                 <Link 
                   key={idx} 
-                  to="#" 
+                  to={item.path} // USING PATH HERE TOO
                   className="flex items-center gap-3 py-2 text-sm text-slate-500 hover:text-purple-600"
                 >
                   <span className="text-purple-400">{item.icon}</span>

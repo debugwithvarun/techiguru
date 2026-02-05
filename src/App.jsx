@@ -7,6 +7,9 @@ import Contact from './components/Contact';
 import SignupPage from "./page/Signup";
 import LoginPage from "./page/Login";
 import TutorDashboard from "./page/TutorDashbaord";
+import Active from "./page/Active";
+import Inactive from "./page/Inactive";
+import CourseDetail from "./components/Course/CourseDetail";
 
 // 1. Create a Layout component that includes Nav and Footer
 const MainLayout = () => {
@@ -30,10 +33,13 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/active-course" element={<Active />} />
+          <Route path="/inactive-course" element={<Inactive />} />
           {/* Add other main pages here */}
         </Route>
 
         {/* 3. Routes that SHOULD NOT have Navbar & Footer */}
+          <Route path="/course/:courseId" element={<CourseDetail />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
           <Route path="/about" element={<TutorDashboard />} />

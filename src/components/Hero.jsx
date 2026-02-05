@@ -1,86 +1,144 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play } from 'lucide-react';
+import hero from "../../public/hero.png";
+import { ArrowRight, Monitor, Plus } from 'lucide-react';
 
 const Hero = () => {
-  const floatVariant = {
+  // Animation for the floating cards (bouncing effect)
+  const floatAnimation = {
     animate: {
-      y: [0, -18, 0],
-      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+      y: [0, -10, 0],
+      transition: {
+        duration: 4,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
+  const floatAnimationDelayed = {
+    animate: {
+      y: [0, 10, 0],
+      transition: {
+        duration: 5,
+        repeat: Infinity,
+        ease: "easeInOut",
+        delay: 0.5
+      }
     }
   };
 
   return (
-    <section className="relative pt-32 lg:pt-40 min-h-screen bg-[#FDFEFE] flex items-center overflow-hidden">
-      {/* Same Max Width and Padding as Navbar for perfect alignment */}
-      <div className="max-w-[1400px] mx-auto px-6 md:px-12 lg:px-20 w-full flex flex-col lg:flex-row items-center">
+    <section className="relative w-full min-h-screen bg-[#FDF8FD] flex items-center justify-center overflow-hidden pt-20 lg:pt-0">
+      
+      {/* Background Decor: Faint blurred blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+      <div className="absolute bottom-[10%] right-[-5%] w-[300px] h-[300px] bg-purple-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
+
+      {/* Floating Diamond Decor (Top Center) */}
+      <motion.div 
+        animate={{ y: [0, -15, 0], rotate: 45 }}
+        transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute top-20 left-[45%] w-12 h-12 bg-purple-200/50 rounded-lg blur-[1px]"
+      />
+
+      <div className="max-w-[1250px] mx-auto px-6 md:px-12 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         
-        {/* Left Side */}
-        <div className="lg:w-[55%] text-left z-10">
+        {/* LEFT SIDE: Text Content */}
+        <div className="z-10 order-2 lg:order-1">
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl lg:text-[72px] font-black text-slate-900 leading-[1.1] mb-8"
+            transition={{ duration: 0.6 }}
+            className="text-[42px] md:text-[56px] lg:text-[64px] font-bold text-[#1a1a2e] leading-[1.15] mb-6 font-sans"
           >
-            Best <span className="relative inline-block text-white px-5 mx-1">
-              <span className="relative z-10 italic font-medium">Online</span>
-              <span className="absolute inset-0 bg-purple-600 -skew-x-6"></span>
-            </span> <br /> Courses From TechiGuru
+            Best <span className="relative inline-block mx-1">
+              {/* The Purple Skewed Background */}
+              <span className="absolute inset-0 bg-[#8B3DFF] -skew-x-6 transform rounded-sm h-full w-full block"></span>
+              {/* The Text */}
+              <span className="relative z-10 text-white px-2">Online</span>
+            </span> Courses <br /> From Edupath
           </motion.h1>
-          
-          <p className="text-gray-500 text-lg lg:text-xl mb-12 max-w-lg leading-relaxed">
-            Discover a world of knowledge and opportunities with our online education platform pursue a new career.
-          </p>
 
-          <button className="bg-purple-600 text-white px-10 py-5 rounded-2xl font-bold text-lg shadow-2xl shadow-purple-200 hover:translate-y-[-2px] transition-all flex items-center gap-3">
-            View Courses <span>→</span>
-          </button>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-gray-500 text-lg leading-relaxed max-w-lg mb-10"
+          >
+            Discover a world of knowledge and opportunities with our online education platform pursue a new career.
+          </motion.p>
+
+          <motion.button 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="bg-[#8B3DFF] text-white px-8 py-4 rounded-lg font-semibold text-base shadow-lg shadow-purple-200 flex items-center gap-2 hover:bg-[#7b35e3] transition-colors"
+          >
+            View Courses <ArrowRight size={20} />
+          </motion.button>
         </div>
 
-        {/* Right Side: Image with Floating Boxes */}
-        <div className="lg:w-[45%] relative mt-20 lg:mt-0 flex justify-center">
+        {/* RIGHT SIDE: Image & Floating Elements */}
+        <div className="relative order-1 lg:order-2 flex justify-center items-center h-[500px] lg:h-[700px]">
           
-          {/* Large Circle behind Student */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] lg:w-[480px] lg:h-[480px] bg-purple-600 rounded-full"></div>
-          
-          <img 
-            src="https://shreethemes.in/TechiGuru/assets/images/hero.png" 
-            className="relative z-10 w-full max-w-[500px]"
-            alt="Hero Student" 
+          {/* Main Purple Circle Background */}
+          <div className="absolute w-[400px] h-[400px] lg:w-[550px] lg:h-[550px] bg-[#AA3DFF] rounded-full overflow-hidden">
+             {/* Honeycomb Pattern Overlay (CSS approximation) */}
+             <div className="absolute inset-0 opacity-10" style={{
+                 backgroundImage: 'radial-gradient(#fff 2px, transparent 2px)',
+                 backgroundSize: '30px 30px'
+             }}></div>
+             <div className="absolute inset-0 bg-gradient-to-tr from-purple-800/30 to-transparent"></div>
+          </div>
+
+     
+          <motion.img 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8 }}
+            src={hero} 
+         
+            className="relative z-10 w-[85%] lg:w-[90%] max-w-[600px] drop-shadow-2xl"
+            alt="Student Learning"
           />
 
-          {/* FLOAT BOX: Online Course */}
           <motion.div 
-            variants={floatVariant}
+            variants={floatAnimation}
             animate="animate"
-            className="absolute -top-4 -right-4 lg:right-0 z-20 bg-white/95 backdrop-blur-md p-5 rounded-2xl shadow-2xl flex items-center gap-4 border border-white"
+            className="absolute top-[15%] right-[5%] lg:right-[0%] z-20 bg-white p-4 rounded-xl shadow-xl shadow-purple-100 border border-gray-50 flex items-center gap-4 min-w-[180px]"
           >
-             <div className="bg-purple-100 p-3 rounded-xl text-purple-600">
-                <Play size={24} fill="currentColor" />
-             </div>
-             <div>
-               <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Online Course</p>
-               <p className="text-2xl font-black text-slate-800 tracking-tight">100+</p>
-             </div>
+            <div className="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center text-[#8B3DFF]">
+              <Monitor size={24} />
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs font-medium mb-0.5">Online Course</p>
+              <h3 className="text-xl font-bold text-slate-900">100+</h3>
+            </div>
           </motion.div>
 
-          {/* FLOAT BOX: Our Instructors */}
+          {/* FLOAT CARD 2: Our Instructors (Bottom Left) */}
           <motion.div 
-            variants={floatVariant}
+            variants={floatAnimationDelayed}
             animate="animate"
-            transition={{ delay: 1 }}
-            className="absolute bottom-10 -left-4 lg:-left-10 z-20 bg-white p-6 rounded-[2rem] shadow-2xl border border-white"
+            className="absolute bottom-[15%] left-[0%] lg:left-[-5%] z-20 bg-white p-5 rounded-xl shadow-xl shadow-purple-100 border border-gray-50 min-w-[200px]"
           >
-             <p className="text-sm font-black text-slate-800 mb-4 tracking-tight">Our Instructors</p>
-             <div className="flex -space-x-3 items-center">
-                {[1, 2, 3, 4].map(i => (
-                  <img key={i} src={`https://i.pravatar.cc/100?u=user${i}`} className="w-11 h-11 rounded-full border-4 border-white" />
-                ))}
-                <div className="w-11 h-11 rounded-full bg-purple-600 border-4 border-white flex items-center justify-center text-white text-[10px] font-black">
-                  +
+            <p className="text-slate-800 font-bold text-sm mb-3">Our Instructors</p>
+            <div className="flex items-center">
+              {/* Avatar Stack */}
+              <div className="flex -space-x-3">
+                <img className="w-10 h-10 rounded-full border-2 border-white object-cover" src="https://i.pravatar.cc/100?u=1" alt="Instr 1" />
+                <img className="w-10 h-10 rounded-full border-2 border-white object-cover" src="https://i.pravatar.cc/100?u=2" alt="Instr 2" />
+                <img className="w-10 h-10 rounded-full border-2 border-white object-cover" src="https://i.pravatar.cc/100?u=3" alt="Instr 3" />
+                <div className="w-10 h-10 rounded-full border-2 border-white bg-[#8B3DFF] flex items-center justify-center text-white">
+                  <Plus size={14} strokeWidth={3} />
                 </div>
-             </div>
+              </div>
+            </div>
           </motion.div>
+
         </div>
       </div>
     </section>

@@ -3,478 +3,247 @@ import {
   LayoutDashboard, BookOpen, PlusCircle, Video, 
   Settings, LogOut, Trash2, Edit2, Save, DollarSign, 
   Users, Clock, BarChart3, Search, Filter, XCircle, 
-  User, Mail, Phone, MapPin, X, CheckCircle, AlertCircle,
-  Upload, Image as ImageIcon
+  User, Mail, Phone, Upload, Image as ImageIcon,
+  Loader, CheckCircle, AlertCircle, ChevronRight, MoreVertical, Layers, ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCourse } from '../context/CourseContext'; 
+import { useAuth } from '../context/AuthContext';     
+import api from '../api/axios'; 
+import { Link, useNavigate } from 'react-router-dom';
 
-// --- 1. INTERFACES & TYPES ---
+// --- TYPES ---
+interface VideoItem { id: number | string; title: string; videoKey: string; duration: string; isFree: boolean; }
+interface TopicItem { id: number | string; title: string; videos: VideoItem[]; }
+interface CourseData { id?: string; title: string; description: string; price: string; category: string; status: 'Active' | 'Inactive' | 'Draft'; thumbnail: string | null; topics: TopicItem[]; }
+interface CourseListItem { _id: string; title: string; studentsEnrolled: number; rating: number; status: 'Active' | 'Inactive' | 'Draft'; price: number; thumbnail?: { url: string }; category?: string; }
 
-interface VideoItem {
-  id: number;
-  title: string;
-  videoKey: string;
-  duration: string;
-  isFree: boolean;
-}
-
-interface TopicItem {
-  id: number;
-  title: string;
-  videos: VideoItem[];
-}
-
-interface CourseData {
-  id?: number; 
-  title: string;
-  description: string;
-  price: string;
-  category: string;
-  status: 'Active' | 'Inactive' | 'Draft';
-  thumbnail: string | null; // Stores URL string for preview
-  topics: TopicItem[];
-}
-
-interface CourseListItem {
-  id: number;
-  title: string;
-  students: number;
-  rating: number;
-  status: 'Active' | 'Inactive' | 'Draft';
-  price: string;
-  thumbnail?: string | null;
-  topics?: TopicItem[];
-  description?: string;
-  category?: string;
-}
-
-interface StatItem {
-  label: string;
-  value: string;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-}
-
-interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-interface CourseListProps {
-  status: 'Active' | 'Inactive';
-  courses: CourseListItem[];
-  onEdit: (course: CourseListItem) => void;
-  onDelete: (id: number) => void;
-}
-
-interface ProfileData {
-  name: string;
-  title: string;
-  email: string;
-  phone: string;
-  location: string;
-  bio: string;
-}
-
-// --- MOCK DATA ---
-const INITIAL_COURSES: CourseListItem[] = [
-  { 
-    id: 1, 
-    title: 'Complete React Guide', 
-    students: 120, 
-    rating: 4.8, 
-    status: 'Active', 
-    price: '$49',
-    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?q=80&w=200&auto=format&fit=crop',
-    description: 'Learn React from scratch.',
-    category: 'web-dev',
-    topics: [
-      { 
-        id: 101, 
-        title: 'Introduction', 
-        videos: [{ id: 1, title: 'Setup Environment', videoKey: 'xyz', duration: '10:00', isFree: true }] 
-      }
-    ]
-  },
-  { 
-    id: 2, 
-    title: 'Advanced NodeJS', 
-    students: 45, 
-    rating: 4.9, 
-    status: 'Active', 
-    price: '$59',
-    thumbnail: 'https://images.unsplash.com/photo-1627398242450-8df416333c38?q=80&w=200&auto=format&fit=crop',
-    description: 'Master Node.js backend.',
-    category: 'web-dev',
-    topics: []
-  },
-  { 
-    id: 3, 
-    title: 'Python for Beginners', 
-    students: 0, 
-    rating: 0, 
-    status: 'Inactive', 
-    price: '$29',
-    thumbnail: null, // No image example
-    description: 'Start your coding journey.',
-    category: 'data-science',
-    topics: []
-  },
-];
-
-const MOCK_STATS: StatItem[] = [
-  { label: 'Total Revenue', value: '$12,450', icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-  { label: 'Active Students', value: '1,240', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-  { label: 'Total Courses', value: '8', icon: BookOpen, color: 'text-purple-600', bg: 'bg-purple-50' },
-  { label: 'Course Hours', value: '142h', icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
-];
-
-// --- HELPER ICONS ---
-const FileIcon: React.FC<{size?: number; className?: string}> = ({size = 20, className}) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-);
-
-
-// --- SUB-COMPONENT: SIDEBAR ---
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+// --- SIDEBAR COMPONENT ---
+const Sidebar = ({ activeTab, setActiveTab, onLogout }: any) => {
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'active_courses', label: 'Active Courses', icon: BookOpen },
-    { id: 'inactive_courses', label: 'Drafts / Inactive', icon: FileIcon },
-    { id: 'add_course', label: 'Create New Course', icon: PlusCircle },
-    { id: 'profile', label: 'My Profile', icon: User }, 
+    { id: 'active_courses', label: 'My Courses', icon: BookOpen },
+    { id: 'add_course', label: 'Create Course', icon: PlusCircle },
+    { id: 'profile', label: 'Settings', icon: Settings }, 
   ];
 
   return (
-    <div className="w-64 bg-[#0F172A] min-h-screen text-slate-300 flex flex-col fixed left-0 top-0 z-50 shadow-2xl">
-      <div className="p-8 border-b border-slate-800 flex items-center gap-3">
-        <div className="w-9 h-9 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-purple-900/50">T</div>
-        <span className="text-xl font-bold text-white tracking-tight">TutorPanel</span>
+    <div className="hidden lg:flex w-72 bg-[#0F172A] min-h-screen text-slate-400 flex-col fixed left-0 top-0 z-50 border-r border-slate-800">
+      <Link to="/">
+      <div className="h-24 flex items-center px-8 border-b border-slate-800/50">
+        <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-violet-900/50 shrink-0">T</div>
+        <span className="ml-4 text-xl font-bold text-white tracking-tight">TutorPanel</span>
       </div>
+        </Link>
 
-      <nav className="flex-1 p-4 space-y-2 mt-4">
+      <nav className="flex-1 px-4 py-8 space-y-2">
         {menuItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+            className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
               activeTab === item.id 
-                ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/30 translate-x-1' 
-                : 'hover:bg-slate-800 hover:text-white hover:translate-x-1'
+                ? 'bg-violet-600 text-white shadow-xl shadow-violet-900/20' 
+                : 'hover:bg-slate-800/50 hover:text-white'
             }`}
           >
-            <item.icon size={20} className={`transition-colors ${activeTab === item.id ? 'text-white' : 'text-slate-500 group-hover:text-white'}`} />
-            <span className="font-medium text-sm">{item.label}</span>
+            <item.icon size={20} className={`relative z-10 transition-transform group-hover:scale-110 ${activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+            <span className="font-medium text-sm relative z-10">{item.label}</span>
+            {activeTab === item.id && <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10" />}
           </button>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-800 rounded-xl transition-colors">
-          <LogOut size={20} />
-          <span className="font-medium text-sm">Logout</span>
+      <div className="p-6 border-t border-slate-800/50">
+        <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition-all group">
+          <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="font-medium text-sm">Sign Out</span>
         </button>
       </div>
     </div>
   );
 };
 
-// --- SUB-COMPONENT: COURSE BUILDER ---
-interface CourseBuilderProps {
-  initialData?: CourseListItem | null;
-  onSave: (data: CourseData) => void;
-  onCancel: () => void;
-}
+// --- HELPER: THUMBNAIL URL ---
+const getImageUrl = (url: string) => {
+    if (!url) return 'https://via.placeholder.com/150?text=No+Image';
+    // Ensure we handle both backslashes (Windows) and forward slashes
+    if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
+        return `http://localhost:5000${url.replace(/\\/g, '/')}`;
+    }
+    return url;
+};
 
-const CourseBuilder: React.FC<CourseBuilderProps> = ({ initialData, onSave, onCancel }) => {
+// --- COURSE BUILDER ---
+const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) => void; onCancel: () => void; isSaving: boolean; }> = ({ initialData, onSave, onCancel, isSaving }) => {
+  const [uploading, setUploading] = useState(false);
   const [courseData, setCourseData] = useState<CourseData>(() => {
      if (initialData) {
        return {
          id: initialData.id,
-         title: initialData.title,
+         title: initialData.title || '',
          description: initialData.description || '',
-         price: initialData.price,
-         category: initialData.category || '',
-         status: initialData.status,
+         price: initialData.price?.toString() || '',
+         category: initialData.category || 'Development',
+         status: initialData.status || 'Draft',
          thumbnail: initialData.thumbnail || null,
          topics: initialData.topics || [] 
        };
      }
-     return {
-      title: '',
-      description: '',
-      price: '',
-      category: '',
-      status: 'Draft',
-      thumbnail: null,
-      topics: [{ id: Date.now(), title: '', videos: [] }]
-    };
+     return { title: '', description: '', price: '', category: 'Development', status: 'Draft', thumbnail: null, topics: [{ id: Date.now(), title: 'Introduction', videos: [] }] };
   });
 
-  // --- Handlers ---
-
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      // Create a fake local URL for preview purposes
-      const previewUrl = URL.createObjectURL(file);
-      setCourseData(prev => ({ ...prev, thumbnail: previewUrl }));
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      const formData = new FormData();
+      formData.append('image', e.target.files[0]);
+      setUploading(true);
+      try {
+        const { data } = await api.post('/courses/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setCourseData(prev => ({ ...prev, thumbnail: data.url }));
+      } catch (error) { alert("Image upload failed"); } finally { setUploading(false); }
     }
   };
 
-  const removeThumbnail = () => {
-    setCourseData(prev => ({ ...prev, thumbnail: null }));
-  };
-
-  const handleAddTopic = () => {
-    setCourseData(prev => ({
-      ...prev,
-      topics: [...prev.topics, { id: Date.now(), title: '', videos: [] }]
-    }));
-  };
-
-  const handleAddVideo = (topicId: number) => {
-    const newVideo: VideoItem = { id: Date.now(), title: '', videoKey: '', duration: '', isFree: false };
-    setCourseData(prev => ({
-      ...prev,
-      topics: prev.topics.map(t => 
-        t.id === topicId ? { ...t, videos: [...t.videos, newVideo] } : t
-      )
-    }));
-  };
-
-  const updateTopic = (id: number, value: string) => {
-    setCourseData(prev => ({
-      ...prev,
-      topics: prev.topics.map(t => t.id === id ? { ...t, title: value } : t)
-    }));
-  };
-
-  const updateVideo = (topicId: number, videoId: number, field: keyof VideoItem, value: string | boolean) => {
-    setCourseData(prev => ({
-      ...prev,
-      topics: prev.topics.map(t => 
-        t.id === topicId ? {
-          ...t,
-          videos: t.videos.map(v => v.id === videoId ? { ...v, [field]: value } : v)
-        } : t
-      )
-    }));
-  };
-
-  const deleteTopic = (id: number) => {
-    setCourseData(prev => ({ ...prev, topics: prev.topics.filter(t => t.id !== id) }));
-  }
-
-  const deleteVideo = (topicId: number, videoId: number) => {
-    setCourseData(prev => ({
-        ...prev,
-        topics: prev.topics.map(t => 
-            t.id === topicId ? { ...t, videos: t.videos.filter(v => v.id !== videoId) } : t
-        )
-    }));
-  }
-
-  const handleSaveClick = () => {
-    if(!courseData.title) return alert("Title required");
-    onSave(courseData);
-  }
+  // Curriculum Handlers
+  const handleAddTopic = () => setCourseData(prev => ({ ...prev, topics: [...prev.topics, { id: Date.now(), title: '', videos: [] }] }));
+  const handleAddVideo = (tId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: [...t.videos, { id: Date.now(), title: '', videoKey: '', duration: '', isFree: false }] } : t) }));
+  const updateTopic = (id: number | string, val: string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === id ? { ...t, title: val } : t) }));
+  const updateVideo = (tId: number | string, vId: number | string, field: keyof VideoItem, val: any) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: t.videos.map(v => v.id === vId ? { ...v, [field]: val } : v) } : t) }));
+  const deleteTopic = (id: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.filter(t => t.id !== id) }));
+  const deleteVideo = (tId: number | string, vId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: t.videos.filter(v => v.id !== vId) } : t) }));
 
   return (
-    <div className="space-y-8 max-w-5xl mx-auto pb-20">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+      {/* Header Bar */}
+      <div className="sticky top-4 z-40 bg-white/80 backdrop-blur-xl p-4 rounded-2xl border border-white shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            {initialData ? <Edit2 size={24} className="text-purple-600"/> : <PlusCircle size={24} className="text-purple-600"/>}
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            {initialData ? <Edit2 className="text-violet-600" size={20}/> : <PlusCircle className="text-violet-600" size={20}/>}
             {initialData ? 'Edit Course' : 'Create New Course'}
           </h2>
-          <p className="text-slate-500 mt-1">Manage curriculum, topics, and upload content.</p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-600 font-semibold hover:bg-slate-50 transition-colors">Cancel</button>
-          <button onClick={handleSaveClick} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-colors flex items-center gap-2">
-            <Save size={18}/> {initialData ? 'Update Course' : 'Publish Course'}
+        <div className="flex gap-3 w-full sm:w-auto">
+          <button onClick={onCancel} className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-semibold hover:bg-slate-50 transition-all">Cancel</button>
+          <button onClick={() => onSave(courseData)} disabled={isSaving || uploading} className="flex-1 sm:flex-none px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
+            {isSaving ? <Loader size={18} className="animate-spin"/> : <Save size={18}/>} Save
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left Column: Basic Info */}
-        <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 sticky top-8">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-4">
-                <Settings size={20} className="text-purple-600" /> Basic Details
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left: Metadata */}
+        <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2 pb-2 border-b border-slate-50">
+                    <Settings size={18} className="text-violet-500" /> Basic Details
                 </h3>
                 
-                <div className="space-y-4">
-                    {/* Thumbnail Upload */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Thumbnail</label>
-                        <div className="relative w-full aspect-video rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 overflow-hidden flex flex-col items-center justify-center hover:border-purple-300 transition-colors group">
-                            {courseData.thumbnail ? (
-                                <>
-                                    <img src={courseData.thumbnail} alt="Thumbnail" className="w-full h-full object-cover" />
-                                    <button 
-                                        onClick={removeThumbnail}
-                                        className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Remove Image"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                </>
-                            ) : (
-                                <div className="text-center p-4">
-                                    <Upload size={24} className="text-slate-400 mx-auto mb-2" />
-                                    <p className="text-xs text-slate-500">Click to upload image</p>
-                                </div>
-                            )}
-                            <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={handleThumbnailChange}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
+                {/* Image Upload */}
+                <div className="group relative w-full aspect-video rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 hover:border-violet-400 overflow-hidden transition-all cursor-pointer">
+                    {uploading ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80">
+                            <Loader className="animate-spin text-violet-600 mb-2"/>
+                            <span className="text-xs font-semibold text-violet-600">Uploading...</span>
                         </div>
-                    </div>
+                    ) : courseData.thumbnail ? (
+                        <>
+                            <img src={getImageUrl(courseData.thumbnail)} alt="Cover" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span className="text-white text-xs font-bold bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Change Image</span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-violet-500">
+                            <ImageIcon size={32} className="mb-2 opacity-50"/>
+                            <span className="text-xs font-medium">Upload Thumbnail</span>
+                        </div>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                </div>
 
+                <div className="space-y-4">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Title</label>
-                        <input 
-                        type="text" 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-300 outline-none transition-all"
-                        placeholder="e.g. Master ReactJS"
-                        value={courseData.title}
-                        onChange={(e) => setCourseData({...courseData, title: e.target.value})}
-                        />
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Title</label>
+                        <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-100 focus:border-violet-500 outline-none transition-all font-medium text-slate-700 placeholder:font-normal" placeholder="Course Title" value={courseData.title} onChange={(e) => setCourseData({...courseData, title: e.target.value})} />
                     </div>
-                    
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description</label>
-                        <textarea 
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 focus:border-purple-300 outline-none h-32 resize-none"
-                        value={courseData.description}
-                        onChange={(e) => setCourseData({...courseData, description: e.target.value})}
-                        />
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Description</label>
+                        <textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-100 focus:border-violet-500 outline-none transition-all h-28 resize-none text-sm" value={courseData.description} onChange={(e) => setCourseData({...courseData, description: e.target.value})} />
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Price ($)</label>
-                            <input 
-                                type="text" 
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none" 
-                                value={courseData.price}
-                                onChange={(e) => setCourseData({...courseData, price: e.target.value})}
-                            />
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Price ($)</label>
+                            <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none" value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Status</label>
-                            <select 
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none bg-white cursor-pointer"
-                                value={courseData.status}
-                                onChange={(e) => setCourseData({...courseData, status: e.target.value as any})}
-                            >
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Status</label>
+                            <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none cursor-pointer" value={courseData.status} onChange={(e) => setCourseData({...courseData, status: e.target.value as any})}>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
                                 <option value="Draft">Draft</option>
                             </select>
                         </div>
                     </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Category</label>
+                        <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none cursor-pointer" value={courseData.category} onChange={(e) => setCourseData({...courseData, category: e.target.value})}>
+                            {['Development', 'Business', 'Design', 'Marketing', 'IT & Software'].map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {/* Right Column: Curriculum */}
-        <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                    <BookOpen size={20} className="text-purple-600"/> Curriculum
+        {/* Right: Curriculum */}
+        <div className="lg:col-span-8 space-y-6">
+            <div className="flex items-center justify-between bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                    <BookOpen size={20} className="text-violet-600"/> Curriculum
                 </h3>
-                <button 
-                    onClick={handleAddTopic}
-                    className="flex items-center gap-2 text-white bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-md shadow-purple-200"
-                >
-                    <PlusCircle size={16} /> Add Topic
+                <button onClick={handleAddTopic} className="flex items-center gap-2 text-violet-700 bg-violet-50 hover:bg-violet-100 px-4 py-2 rounded-xl font-bold text-sm transition-colors border border-violet-100">
+                    <PlusCircle size={16} /> Add Section
                 </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
                 {courseData.topics.length === 0 && (
-                    <div className="text-center p-12 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-400">
-                        <BookOpen size={48} className="mx-auto mb-4 opacity-20"/>
-                        <p>No topics added yet. Click "Add Topic" to start.</p>
+                    <div className="flex flex-col items-center justify-center p-16 bg-white rounded-3xl border-2 border-dashed border-slate-200 text-slate-400">
+                        <Layers size={48} className="mb-4 opacity-20"/>
+                        <p>No content yet. Add a section to start.</p>
                     </div>
                 )}
 
+                <AnimatePresence>
                 {courseData.topics.map((topic, tIndex) => (
-                <div key={topic.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                    {/* Topic Header */}
-                    <div className="bg-slate-50/80 p-4 flex items-center gap-4 border-b border-slate-100">
-                        <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm">
-                            {tIndex + 1}
-                        </div>
-                        <input 
-                            type="text" 
-                            placeholder="Topic Title (e.g. Introduction)"
-                            className="flex-1 bg-transparent border-none focus:ring-0 font-bold text-slate-800 placeholder:text-slate-400 text-lg"
-                            value={topic.title}
-                            onChange={(e) => updateTopic(topic.id, e.target.value)}
-                        />
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} key={topic.id} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-slate-50/50 p-4 flex items-center gap-4 border-b border-slate-100">
+                        <div className="w-8 h-8 bg-violet-100 text-violet-700 rounded-lg flex items-center justify-center font-bold text-sm shadow-sm">{tIndex + 1}</div>
+                        <input type="text" placeholder="Section Title" className="flex-1 bg-transparent border-none focus:ring-0 font-bold text-slate-700 placeholder:text-slate-400 text-lg" value={topic.title} onChange={(e) => updateTopic(topic.id, e.target.value)} />
                         <button onClick={() => deleteTopic(topic.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
                     </div>
 
-                    {/* Videos List */}
-                    <div className="p-5 space-y-3 bg-white">
+                    <div className="p-5 space-y-3">
                         {topic.videos.map((video, vIndex) => (
-                            <div key={video.id} className="group flex flex-col md:flex-row gap-4 items-start md:items-center p-3 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition-all">
-                                <div className="p-2 bg-white border border-slate-200 text-purple-600 rounded-lg shadow-sm">
-                                    <Video size={18} />
-                                </div>
-                                
-                                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-center">
-                                    <input 
-                                    type="text" 
-                                    placeholder="Video Title" 
-                                    className="md:col-span-5 p-2 bg-transparent border-b border-slate-200 focus:border-purple-400 outline-none text-sm font-medium text-slate-700 placeholder:font-normal"
-                                    value={video.title}
-                                    onChange={(e) => updateVideo(topic.id, video.id, 'title', e.target.value)}
-                                    />
+                            <div key={video.id} className="group flex flex-col md:flex-row gap-4 items-center p-3 rounded-2xl border border-slate-100 bg-white hover:border-violet-200 hover:bg-violet-50/30 transition-all shadow-sm">
+                                <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><Video size={18} /></div>
+                                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 w-full items-center">
+                                    <input type="text" placeholder="Lesson Title" className="md:col-span-5 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm font-medium text-slate-700" value={video.title} onChange={(e) => updateVideo(topic.id, video.id, 'title', e.target.value)} />
                                     <div className="md:col-span-4 relative">
-                                        <span className="absolute left-0 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Key:</span>
-                                        <input 
-                                            type="text" 
-                                            placeholder="e.g. dQw4w9WgXcQ" 
-                                            className="w-full pl-8 p-2 bg-transparent border-b border-slate-200 focus:border-purple-400 outline-none text-sm font-mono text-slate-600"
-                                            value={video.videoKey}
-                                            onChange={(e) => updateVideo(topic.id, video.id, 'videoKey', e.target.value)}
-                                        />
+                                        <input type="text" placeholder="Video Key / URL" className="w-full pl-2 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 font-mono" value={video.videoKey} onChange={(e) => updateVideo(topic.id, video.id, 'videoKey', e.target.value)} />
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Duration" 
-                                        className="md:col-span-3 p-2 bg-transparent border-b border-slate-200 focus:border-purple-400 outline-none text-sm text-slate-600 text-center"
-                                        value={video.duration}
-                                        onChange={(e) => updateVideo(topic.id, video.id, 'duration', e.target.value)}
-                                    />
+                                    <input type="text" placeholder="00:00" className="md:col-span-3 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 text-center" value={video.duration} onChange={(e) => updateVideo(topic.id, video.id, 'duration', e.target.value)} />
                                 </div>
-
-                                <button onClick={() => deleteVideo(topic.id, video.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><XCircle size={20} /></button>
+                                <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><XCircle size={18} /></button>
                             </div>
                         ))}
-
-                        <button 
-                            onClick={() => handleAddVideo(topic.id)}
-                            className="w-full py-3 mt-2 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 font-semibold hover:border-purple-300 hover:text-purple-600 hover:bg-purple-50 transition-all flex items-center justify-center gap-2 text-sm"
-                        >
-                            <PlusCircle size={16} /> Add Video Lesson
+                        <button onClick={() => handleAddVideo(topic.id)} className="w-full py-3 mt-2 border border-dashed border-slate-200 rounded-xl text-slate-400 font-medium hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex items-center justify-center gap-2 text-sm">
+                            <PlusCircle size={16} /> Add Lesson
                         </button>
                     </div>
-                </div>
+                </motion.div>
                 ))}
+                </AnimatePresence>
             </div>
         </div>
       </div>
@@ -482,295 +251,215 @@ const CourseBuilder: React.FC<CourseBuilderProps> = ({ initialData, onSave, onCa
   );
 };
 
-// --- SUB-COMPONENT: COURSE LIST ---
-const CourseList: React.FC<CourseListProps> = ({ status, courses, onEdit, onDelete }) => {
-  const filteredCourses = courses.filter(c => c.status === status);
+// --- COURSE LIST (With Functional Search) ---
+const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter Logic
+  const filteredCourses = courses.filter((course: any) => 
+    course.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <h2 className="text-2xl font-bold text-slate-900 capitalize flex items-center gap-2">
-            <BookOpen className="text-purple-600" size={24}/> {status} Courses
-        </h2>
-        <div className="flex gap-2">
-           <div className="relative hidden md:block">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-             <input type="text" placeholder="Search courses..." className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-100 w-64 text-sm" />
+    <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white shadow-sm">
+        <div>
+            <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <BookOpen className="text-violet-600" size={28}/> Course Library
+            </h2>
+            <p className="text-slate-500 text-sm mt-1">Manage your active and inactive content.</p>
+        </div>
+        <div className="flex gap-3 w-full sm:w-auto">
+           <div className="relative flex-1 sm:w-72 group">
+             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-violet-500 transition-colors" size={18} />
+             <input 
+                type="text" 
+                placeholder="Search by title..." 
+                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-500 text-sm transition-all shadow-sm" 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+             />
            </div>
-           <button className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50"><Filter size={20} className="text-slate-600"/></button>
         </div>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50/80 border-b border-slate-200">
-            <tr>
-              <th className="p-5 font-semibold text-slate-500 text-xs uppercase tracking-wider">Course Name</th>
-              <th className="p-5 font-semibold text-slate-500 text-xs uppercase tracking-wider">Price</th>
-              <th className="p-5 font-semibold text-slate-500 text-xs uppercase tracking-wider">Students</th>
-              <th className="p-5 font-semibold text-slate-500 text-xs uppercase tracking-wider">Status</th>
-              <th className="p-5 font-semibold text-slate-500 text-xs uppercase tracking-wider text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCourses.length > 0 ? filteredCourses.map((course) => (
-              <tr key={course.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/30 transition-colors group">
-                <td className="p-5">
-                  <div className="flex items-center gap-4">
-                    {/* THUMBNAIL DISPLAY */}
-                    <div className="w-16 h-10 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex-shrink-0">
-                        {course.thumbnail ? (
-                            <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-purple-50 text-purple-300">
-                                <ImageIcon size={16} />
+      {isLoading ? (
+          <div className="flex flex-col items-center justify-center p-20"><Loader className="animate-spin text-violet-600 mb-4" size={40}/><p className="text-slate-400 font-medium">Loading your content...</p></div>
+      ) : (
+          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-xl shadow-slate-200/50">
+            <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50/80 border-b border-slate-100">
+                    <tr>
+                    {['Course Name', 'Price', 'Students', 'Status', 'Actions'].map((h) => (
+                        <th key={h} className="p-5 font-bold text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                    ))}
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                    {filteredCourses.length > 0 ? filteredCourses.map((course: any) => (
+                    <tr key={course._id} className="hover:bg-slate-50/80 transition-colors group">
+                        <td className="p-5">
+                        <div className="flex items-center gap-4">
+                            <div className="w-20 h-14 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 shadow-sm relative">
+                                <img src={getImageUrl(course.thumbnail?.url)} alt="Thumbnail" className="w-full h-full object-cover" />
                             </div>
-                        )}
-                    </div>
-                    <div>
-                        <span className="block font-bold text-slate-800 text-sm">{course.title}</span>
-                        <span className="block text-xs text-slate-400">{course.category || 'General'}</span>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-5 text-slate-600 font-bold text-sm">{course.price}</td>
-                <td className="p-5 text-slate-600 text-sm flex items-center gap-1"><Users size={14}/> {course.students}</td>
-                <td className="p-5">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                      course.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                      course.status === 'Inactive' ? 'bg-slate-100 text-slate-600 border-slate-200' : 
-                      'bg-amber-50 text-amber-600 border-amber-100'
-                  }`}>
-                    {course.status}
-                  </span>
-                </td>
-                <td className="p-5 text-right">
-                  <div className="flex justify-end gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                    <button 
-                        onClick={() => onEdit(course)} 
-                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                        title="Edit"
-                    >
-                        <Edit2 size={18} />
-                    </button>
-                    <button 
-                        onClick={() => onDelete(course.id)} 
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={6} className="p-16 text-center text-slate-400">
-                   <div className="flex flex-col items-center gap-2">
-                       <FileIcon size={48} className="opacity-20"/>
-                       <p>No courses found in this category.</p>
-                   </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                            <div>
+                                <span className="block font-bold text-slate-800 text-sm group-hover:text-violet-700 transition-colors line-clamp-1">{course.title}</span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-md bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-wide">{course.category || 'General'}</span>
+                            </div>
+                        </div>
+                        </td>
+                        <td className="p-5 text-slate-700 font-bold text-sm font-mono">${course.price}</td>
+                        <td className="p-5 text-slate-600 text-sm"><div className="flex items-center gap-1.5"><Users size={14} className="text-slate-400"/> {course.studentsEnrolled || 0}</div></td>
+                        <td className="p-5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+                            course.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
+                            course.status === 'Inactive' ? 'bg-slate-100 text-slate-600 border-slate-200' : 
+                            'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${course.status === 'Active' ? 'bg-emerald-500' : course.status === 'Inactive' ? 'bg-slate-400' : 'bg-amber-500'}`}></span>
+                            {course.status}
+                        </span>
+                        </td>
+                        <td className="p-5 text-right">
+                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => onEdit(course)} className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-xl transition-all" title="Edit"><Edit2 size={18} /></button>
+                            <button onClick={() => onDelete(course._id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="Delete"><Trash2 size={18} /></button>
+                        </div>
+                        </td>
+                    </tr>
+                    )) : (
+                    <tr>
+                        <td colSpan={5} className="p-20 text-center text-slate-400">
+                            <div className="flex flex-col items-center justify-center gap-3">
+                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center"><Search size={32} className="opacity-20"/></div>
+                                <p>No courses found matching "{searchTerm}".</p>
+                            </div>
+                        </td>
+                    </tr>
+                    )}
+                </tbody>
+                </table>
+            </div>
+          </div>
+      )}
     </div>
   );
 };
 
-// --- SUB-COMPONENT: PROFILE SECTION (View & Edit) ---
-const ProfileSection: React.FC = () => {
+// --- PROFILE SECTION ---
+const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState<ProfileData>({
-    name: 'Calvin Carlo',
-    title: 'Senior Python Instructor',
-    email: 'calvin@techiguru.com',
-    phone: '+1 800 555 1234',
-    location: 'Houston, USA',
-    bio: 'Passionate educator with 10+ years of experience in Full Stack Development.'
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [profile, setProfile] = useState({ name: user?.name || '', email: user?.email || '', bio: user?.bio || '', title: user?.title || '' });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-  };
-
-  const handleSave = () => {
-    setIsEditing(false);
-    alert("Profile Updated Successfully!");
+  const handleSave = async () => {
+    setIsSaving(true);
+    try { await api.put('/auth/profile', profile); setIsEditing(false); alert("Profile Updated!"); } catch (e) { alert("Error updating profile"); } finally { setIsSaving(false); }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <div>
-            <h2 className="text-2xl font-bold text-slate-900">My Profile</h2>
-            <p className="text-slate-500 text-sm">Manage your personal information and contact details.</p>
-        </div>
-        {!isEditing ? (
-          <button 
-            onClick={() => setIsEditing(true)}
-            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold hover:bg-slate-800 shadow-lg shadow-slate-200 transition-all flex items-center gap-2"
-          >
-            <Edit2 size={16} /> Edit Profile
-          </button>
-        ) : (
-          <div className="flex gap-2">
-            <button onClick={() => setIsEditing(false)} className="px-5 py-2.5 border border-slate-200 rounded-xl text-slate-600 font-medium hover:bg-slate-50 transition-colors">Cancel</button>
-            <button onClick={handleSave} className="px-5 py-2.5 bg-purple-600 text-white rounded-xl font-bold shadow-lg shadow-purple-200 hover:bg-purple-700 transition-colors flex items-center gap-2">
-              <Save size={18} /> Save Changes
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex flex-col md:flex-row gap-10 items-start">
-          {/* Avatar Area */}
-          <div className="flex flex-col items-center space-y-4">
-            <div className="w-40 h-40 rounded-full border-4 border-white shadow-xl overflow-hidden relative group">
-               <img src="https://i.pravatar.cc/150?u=a" alt="Profile" className="w-full h-full object-cover" />
-               {isEditing && (
-                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                       <span className="text-white text-xs font-bold uppercase tracking-wider">Change</span>
-                   </div>
-               )}
-            </div>
-            {!isEditing && (
-                <div className="text-center">
-                    <h3 className="font-bold text-slate-900 text-lg">{profile.name}</h3>
-                    <p className="text-slate-500 text-sm">{profile.title}</p>
-                </div>
-            )}
-          </div>
-
-          {/* Details Form */}
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 w-full">
-            <div className="col-span-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Full Name</label>
-               {isEditing ? (
-                 <input name="name" value={profile.name} onChange={handleChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 outline-none" />
-               ) : (
-                 <p className="text-lg font-medium text-slate-900 py-2 border-b border-slate-100">{profile.name}</p>
-               )}
-            </div>
-
-            <div className="col-span-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Title / Headline</label>
-               {isEditing ? (
-                 <input name="title" value={profile.title} onChange={handleChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 outline-none" />
-               ) : (
-                 <p className="text-lg text-slate-700 py-2 border-b border-slate-100">{profile.title}</p>
-               )}
-            </div>
-
-            <div>
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Email</label>
-               {isEditing ? (
-                 <input name="email" value={profile.email} onChange={handleChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 outline-none" />
-               ) : (
-                 <p className="flex items-center gap-3 text-slate-700 py-2 border-b border-slate-100"><Mail size={18} className="text-purple-500"/> {profile.email}</p>
-               )}
-            </div>
-
-            <div>
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Phone</label>
-               {isEditing ? (
-                 <input name="phone" value={profile.phone} onChange={handleChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 outline-none" />
-               ) : (
-                 <p className="flex items-center gap-3 text-slate-700 py-2 border-b border-slate-100"><Phone size={18} className="text-purple-500"/> {profile.phone}</p>
-               )}
-            </div>
-            
-            <div className="col-span-2">
-               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Bio</label>
-               {isEditing ? (
-                 <textarea name="bio" value={profile.bio} onChange={handleChange} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-purple-100 outline-none h-32 resize-none" />
-               ) : (
-                 <p className="text-slate-600 leading-relaxed py-2 bg-slate-50/50 p-4 rounded-xl">{profile.bio}</p>
-               )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// --- SUB-COMPONENT: DASHBOARD OVERVIEW ---
-const DashboardOverview: React.FC = () => {
-  return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      {/* Welcome Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Welcome Back, Calvin! 👋</h1>
-          <p className="text-slate-500">Here is what's happening with your courses today.</p>
-        </div>
-        <button className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold shadow-xl shadow-slate-200 hover:bg-slate-800 transition-all flex items-center gap-2 transform hover:-translate-y-1">
-           <BarChart3 size={18} /> View Analytics
-        </button>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {MOCK_STATS.map((stat, idx) => (
-          <motion.div 
-            key={idx}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="bg-white p-6 rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-lg transition-shadow group"
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3.5 rounded-xl ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
-                <stat.icon size={24} />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-violet-600 to-indigo-700 p-8 shadow-xl shadow-violet-200">
+          <div className="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6 text-white">
+              <div className="w-28 h-28 rounded-2xl bg-white/20 backdrop-blur-md border-4 border-white/30 flex items-center justify-center text-4xl font-bold shadow-2xl">
+                  {profile.name?.[0]?.toUpperCase() || 'U'}
               </div>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> +12%
-              </span>
-            </div>
-            <h3 className="text-slate-500 text-sm font-bold uppercase tracking-wider mb-1 opacity-70">{stat.label}</h3>
-            <p className="text-3xl font-black text-slate-900 tracking-tight">{stat.value}</p>
-          </motion.div>
-        ))}
+              <div className="flex-1 text-center md:text-left mb-2">
+                  <h2 className="text-3xl font-bold">{profile.name}</h2>
+                  <p className="text-violet-100 opacity-90">{profile.title || 'Instructor'}</p>
+              </div>
+              <button onClick={() => isEditing ? handleSave() : setIsEditing(true)} disabled={isSaving} className="px-6 py-2.5 bg-white text-violet-700 rounded-xl font-bold hover:bg-violet-50 transition-all shadow-lg flex items-center gap-2">
+                  {isSaving ? <Loader size={18} className="animate-spin"/> : isEditing ? <><Save size={18}/> Save Changes</> : <><Edit2 size={18}/> Edit Profile</>}
+              </button>
+          </div>
+          {/* Decorative Circles */}
+          <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black/10 rounded-full blur-2xl pointer-events-none"></div>
       </div>
 
-      {/* Recent Activity Section */}
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-lg shadow-slate-100/50">
+          <h3 className="font-bold text-slate-800 text-lg mb-6 border-b border-slate-50 pb-4">Personal Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-1">
+                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Full Name</label>
+                 <input disabled={!isEditing} className={`w-full p-3 rounded-xl border ${isEditing ? 'bg-white border-violet-300 focus:ring-2 focus:ring-violet-100' : 'bg-slate-50 border-transparent'} transition-all`} value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})} />
+             </div>
+             <div className="space-y-1">
+                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Title / Role</label>
+                 <input disabled={!isEditing} className={`w-full p-3 rounded-xl border ${isEditing ? 'bg-white border-violet-300 focus:ring-2 focus:ring-violet-100' : 'bg-slate-50 border-transparent'} transition-all`} value={profile.title} onChange={(e) => setProfile({...profile, title: e.target.value})} />
+             </div>
+             <div className="md:col-span-2 space-y-1">
+                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Bio</label>
+                 <textarea disabled={!isEditing} className={`w-full p-3 rounded-xl border ${isEditing ? 'bg-white border-violet-300 focus:ring-2 focus:ring-violet-100' : 'bg-slate-50 border-transparent'} transition-all h-32 resize-none`} value={profile.bio} onChange={(e) => setProfile({...profile, bio: e.target.value})} />
+             </div>
+             <div className="md:col-span-2 space-y-1">
+                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Email Address</label>
+                 <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl text-slate-500 border border-transparent"><Mail size={18}/> {profile.email}</div>
+             </div>
+          </div>
+      </div>
+    </div>
+  );
+};
+
+// --- DASHBOARD OVERVIEW ---
+const DashboardOverview: React.FC<{ courses: any[] }> = ({ courses }) => {
+  const activeCount = courses.filter(c => c.status === 'Active').length;
+  const draftCount = courses.filter(c => c.status === 'Draft').length;
+  
+  const StatCard = ({ label, value, icon: Icon, color, delay }: any) => (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-default">
+        <div className="flex justify-between items-start mb-4">
+            <div className={`p-3.5 rounded-2xl ${color} text-white shadow-md`}><Icon size={24} /></div>
+            {label === 'Revenue' && <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">+12%</span>}
+        </div>
+        <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">{label}</h3>
+        <p className="text-3xl font-black text-slate-800 tracking-tight">{value}</p>
+    </motion.div>
+  );
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Hello, Instructor 👋</h1>
+          <p className="text-slate-500 mt-2">Here's what's happening with your content today.</p>
+        </div>
+        <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-2"><BarChart3 size={18}/> Analytics</button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+         <StatCard label="Revenue" value="$0.00" icon={DollarSign} color="bg-gradient-to-br from-emerald-400 to-emerald-600" delay={0} />
+         <StatCard label="Students" value="0" icon={Users} color="bg-gradient-to-br from-blue-400 to-blue-600" delay={0.1} />
+         <StatCard label="Courses" value={courses.length} icon={BookOpen} color="bg-gradient-to-br from-violet-400 to-violet-600" delay={0.2} />
+         <StatCard label="Drafts" value={draftCount} icon={Clock} color="bg-gradient-to-br from-amber-400 to-amber-600" delay={0.3} />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-slate-100 shadow-sm min-h-[350px]">
+        <div className="lg:col-span-2 bg-white p-8 rounded-3xl border border-slate-100 shadow-sm min-h-[400px]">
            <div className="flex justify-between items-center mb-8">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <DollarSign size={20} className="text-purple-600"/> Revenue Analytics
-                </h3>
-                <select className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-lg p-2 font-medium outline-none">
-                    <option>This Month</option>
-                    <option>Last Month</option>
-                </select>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2"><DollarSign size={20} className="text-violet-600"/> Revenue Analytics</h3>
+                <select className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-xl px-3 py-2 font-medium outline-none cursor-pointer"><option>This Month</option><option>Last Month</option></select>
            </div>
-           <div className="w-full h-64 bg-slate-50/50 rounded-2xl flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200">
+           <div className="w-full h-72 bg-slate-50/50 rounded-2xl flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200">
               <BarChart3 size={48} className="opacity-20 mb-2"/>
-              <span className="text-sm font-medium opacity-50">[Chart Component Placeholder]</span>
+              <span className="text-sm font-medium opacity-50">No data available to display</span>
            </div>
         </div>
-
-        <div className="bg-white p-8 rounded-2xl border border-slate-100 shadow-sm">
-           <h3 className="text-lg font-bold text-slate-900 mb-6">Quick Actions</h3>
-           <div className="space-y-4">
-             <button className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 font-bold hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all text-left flex gap-4 items-center group">
-               <div className="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><PlusCircle size={20} className="text-purple-600"/></div>
-               Create New Course
-             </button>
-             <button className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 font-bold hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all text-left flex gap-4 items-center group">
-               <div className="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><Users size={20} className="text-blue-600"/></div>
-               View Student List
-             </button>
-             <button className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 font-bold hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 transition-all text-left flex gap-4 items-center group">
-               <div className="bg-white p-2 rounded-lg shadow-sm group-hover:scale-110 transition-transform"><Settings size={20} className="text-slate-600"/></div>
-               Account Settings
-             </button>
+        <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm">
+           <h3 className="font-bold text-slate-800 mb-6">Quick Actions</h3>
+           <div className="space-y-3">
+             {['Create New Course', 'View Student List', 'Account Settings'].map((action, i) => (
+                 <button key={i} className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-600 font-bold hover:bg-violet-50 hover:border-violet-100 hover:text-violet-700 transition-all text-left flex justify-between items-center group">
+                    <span className="flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-xl shadow-sm text-violet-500"><PlusCircle size={18}/></div>
+                        {action}
+                    </span>
+                    <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"/>
+                 </button>
+             ))}
            </div>
         </div>
       </div>
@@ -778,92 +467,54 @@ const DashboardOverview: React.FC = () => {
   );
 };
 
-// --- MAIN PAGE COMPONENT (CONTAINER) ---
+// --- MAIN DASHBOARD CONTAINER ---
 const TutorDashboard: React.FC = () => {
+  const { user, logout, loading: authLoading } = useAuth();
+  const { myCourses, fetchMyCourses, createCourse, updateCourse, deleteCourse, loading: courseLoading } = useCourse();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [courses, setCourses] = useState<CourseListItem[]>(INITIAL_COURSES);
-  
-  // State for Editing
-  const [editingCourse, setEditingCourse] = useState<CourseListItem | null>(null);
+  const [editingCourse, setEditingCourse] = useState<any>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // -- ACTIONS --
+  useEffect(() => { if(!authLoading && (!user || user.role !== 'instructor')) { /* Handle Redirect */ } }, [user, authLoading, navigate]);
+  useEffect(() => { if(user?.role === 'instructor') fetchMyCourses(); }, [user]);
 
-  // 1. Edit: Switch to builder, load data
-  const handleEditCourse = (course: CourseListItem) => {
-    setEditingCourse(course);
-    setActiveTab('add_course');
+  const handleEditCourse = (course: any) => {
+    // Map backend data to frontend builder structure
+    const mapped = {
+        id: course._id, title: course.title, description: course.description, price: course.price, category: course.category, status: course.status, thumbnail: course.thumbnail?.url,
+        topics: course.sections?.map((sec: any) => ({ id: sec._id || Date.now(), title: sec.title, videos: sec.lessons?.map((les: any) => ({ id: les._id, title: les.title, videoKey: les.videoKey, duration: les.videoDuration?.toString(), isFree: les.isFree })) || [] })) || []
+    };
+    setEditingCourse(mapped); setActiveTab('add_course');
   };
 
-  // 2. Save: Update or Add new
-  const handleSaveCourse = (data: CourseData) => {
-    if (editingCourse) {
-      // Update logic
-      setCourses(prev => prev.map(c => c.id === data.id ? { ...c, ...data } as CourseListItem : c));
-      alert("Course Updated Successfully!");
-    } else {
-      // Create logic
-      const newId = Date.now();
-      const newCourse: CourseListItem = {
-        ...data,
-        id: newId,
-        students: 0,
-        rating: 0,
-      } as CourseListItem;
-      setCourses(prev => [...prev, newCourse]);
-      alert("New Course Created Successfully!");
-    }
-    // Reset
-    setEditingCourse(null);
-    setActiveTab('active_courses');
+  const handleSaveCourse = async (data: CourseData) => {
+    setIsSaving(true);
+    const payload = {
+        title: data.title, description: data.description, price: Number(data.price), category: data.category, status: data.status,
+        thumbnail: data.thumbnail ? { url: data.thumbnail } : undefined,
+        sections: data.topics.map((t) => ({ title: t.title, lessons: t.videos.map((v) => ({ title: v.title, type: 'video', videoKey: v.videoKey, videoDuration: parseInt(v.duration || '0') })) }))
+    };
+    const result = editingCourse?.id ? await updateCourse(editingCourse.id, payload) : await createCourse(payload);
+    setIsSaving(false);
+    if (result.success) { setEditingCourse(null); setActiveTab('active_courses'); } else { alert(result.message); }
   };
 
-  // 3. Delete
-  const handleDeleteCourse = (id: number) => {
-    if(window.confirm("Are you sure you want to delete this course? This action cannot be undone.")) {
-      setCourses(prev => prev.filter(c => c.id !== id));
-    }
-  };
+  const handleDelete = async (id: string) => { if(confirm("Delete this course?")) await deleteCourse(id); };
 
-  // 4. Cancel
-  const handleCancel = () => {
-    setEditingCourse(null);
-    setActiveTab('overview');
-  };
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'overview': return <DashboardOverview />;
-      case 'active_courses': 
-        return <CourseList status="Active" courses={courses} onEdit={handleEditCourse} onDelete={handleDeleteCourse} />;
-      case 'inactive_courses': 
-        return <CourseList status="Inactive" courses={courses} onEdit={handleEditCourse} onDelete={handleDeleteCourse} />;
-      case 'add_course': 
-        return <CourseBuilder initialData={editingCourse} onSave={handleSaveCourse} onCancel={handleCancel} />;
-      case 'profile':
-        return <ProfileSection />;
-      default: return <DashboardOverview />;
-    }
-  };
+  if(authLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader className="animate-spin text-violet-600"/></div>;
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={(tab) => {
-        // Clear edit state if navigating away manually
-        if (tab !== 'add_course') setEditingCourse(null);
-        setActiveTab(tab);
-      }} />
-      
-      {/* Main Content Area */}
-      <div className="flex-1 ml-64 p-8 lg:p-10 overflow-y-auto h-screen">
+    <div className="flex min-h-screen bg-[#F8FAFC] font-sans text-slate-600 selection:bg-violet-200 selection:text-violet-900">
+      <Sidebar activeTab={activeTab} setActiveTab={(t: string) => { if(t !== 'add_course') setEditingCourse(null); setActiveTab(t); }} onLogout={() => { logout(); navigate('/login'); }} />
+      <div className="flex-1 lg:ml-72 p-6 lg:p-10 overflow-y-auto h-screen">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            {renderContent()}
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
+            {activeTab === 'overview' ? <DashboardOverview courses={myCourses} /> :
+             activeTab === 'active_courses' ? <CourseList status="Active" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
+             activeTab === 'inactive_courses' ? <CourseList status="Draft" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
+             activeTab === 'add_course' ? <CourseBuilder initialData={editingCourse} onSave={handleSaveCourse} onCancel={() => setActiveTab('active_courses')} isSaving={isSaving} /> :
+             <ProfileSection user={user} />}
           </motion.div>
         </AnimatePresence>
       </div>

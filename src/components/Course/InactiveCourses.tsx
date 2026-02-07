@@ -1,16 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Archive, History } from 'lucide-react';
+import { Search, Archive, History, Loader, AlertCircle } from 'lucide-react';
 import CourseCard from './CourseCard'; 
-
-const INACTIVE_COURSES = [
-  { id: 101, title: 'Legacy: Intro to C++', category: 'Programming', students: 5000, rating: 4.5, price: '$19', lessons: 50, duration: '20h 00m', thumbnail: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=600&auto=format&fit=crop' },
-  { id: 102, title: 'Photoshop CS6 Essentials', category: 'Design', students: 1200, rating: 4.2, price: '$25', lessons: 25, duration: '10h 00m', thumbnail: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=600&auto=format&fit=crop' },
-  { id: 103, title: 'Web Development 2018', category: 'Web Dev', students: 8900, rating: 4.1, price: 'Free', lessons: 100, duration: '40h 00m', thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=600&auto=format&fit=crop' },
-  { id: 104, title: 'Draft: Advanced AI Agents', category: 'AI & ML', students: 0, rating: 0, price: 'TBD', lessons: 5, duration: '2h 00m', thumbnail: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?q=80&w=600&auto=format&fit=crop' },
-];
+import api from '../../api/axios'; // Import API helper
 
 const InactiveCourses = () => {
+  // Local state to keep archived courses separate from the main "Active" context
+  const [courses, setCourses] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Fetch Inactive Courses
+  const fetchArchivedCourses = async (keyword = '') => {
+    setLoading(true);
+    try {
+      // API call with status=Inactive filter
+      const { data } = await api.get(`/courses?status=Inactive&keyword=${keyword}`);
+      setCourses(data.courses);
+      setError(null);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load archived courses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial Load
+  useEffect(() => {
+    fetchArchivedCourses();
+  }, []);
+
+  // Handle Search
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      fetchArchivedCourses(searchTerm);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-12 px-6 lg:px-12">
       <div className="max-w-7xl mx-auto">
@@ -31,7 +58,14 @@ const InactiveCourses = () => {
 
           <div className="relative w-full md:w-80">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input type="text" placeholder="Search archive..." className="w-full pl-12 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-200 bg-white shadow-sm" />
+            <input 
+              type="text" 
+              placeholder="Search archive... (Press Enter)" 
+              className="w-full pl-12 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-200 bg-white shadow-sm transition-all" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={handleSearch}
+            />
           </div>
         </div>
 
@@ -46,30 +80,70 @@ const InactiveCourses = () => {
           </div>
         </div>
 
-        {/* Grid Layout */}
-        <motion.div 
-          initial="hidden"
-          animate="visible"
-          variants={{
-            hidden: { opacity: 0 },
-            visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-          }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          {INACTIVE_COURSES.map((course) => (
+        {/* --- CONTENT STATES --- */}
+
+        {/* 1. Loading */}
+        {loading && (
+            <div className="flex justify-center items-center h-64">
+                <Loader className="animate-spin text-slate-400" size={40} />
+            </div>
+        )}
+
+        {/* 2. Error */}
+        {error && (
+            <div className="flex items-center gap-2 text-red-600 bg-red-50 p-4 rounded-xl border border-red-100 mb-8">
+                <AlertCircle size={20} />
+                <p>{error}</p>
+            </div>
+        )}
+
+        {/* 3. Empty State */}
+        {!loading && !error && courses.length === 0 && (
+            <div className="text-center py-16 text-slate-400 bg-white rounded-3xl border border-slate-100 border-dashed">
+                <Archive size={48} className="mx-auto mb-4 opacity-20"/>
+                <p>No archived courses found.</p>
+                {searchTerm && <button onClick={() => { setSearchTerm(''); fetchArchivedCourses(''); }} className="text-purple-600 font-bold hover:underline mt-2">Clear Search</button>}
+            </div>
+        )}
+
+        {/* 4. Grid Layout */}
+        {!loading && !error && courses.length > 0 && (
             <motion.div 
-              key={course.id}
+              initial="hidden"
+              animate="visible"
               variants={{
-                hidden: { opacity: 0, y: 20 },
-                visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+                hidden: { opacity: 0 },
+                visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
               }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
             >
-              {/* Using same card, but passing isInactive=true just in case we want specific visual cues later, 
-                  but strictly open access for now. */}
-              <CourseCard course={course} isInactive={true} />
+              {courses.map((course) => (
+                <motion.div 
+                  key={course._id}
+                  variants={{
+                    hidden: { opacity: 0, y: 20 },
+                    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+                  }}
+                >
+                  <CourseCard 
+                    course={{
+                        id: course._id,
+                        title: course.title,
+                        category: course.category,
+                        students: course.studentsEnrolled || 0,
+                        rating: course.rating || 0,
+                        // Ensure inactive courses show as Free or discounted
+                        price: 'Free', 
+                        lessons: course.sections?.reduce((acc: number, sec: any) => acc + sec.lessons.length, 0) || 0,
+                        duration: '10h 00m', // You can map this from virtual field if available
+                        thumbnail: course.thumbnail?.url || 'https://via.placeholder.com/600x400?text=Archive'
+                    }} 
+                    isInactive={true} 
+                  />
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
+        )}
 
       </div>
     </div>

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, Mail, Phone, Lock, Eye, EyeOff, ArrowRight, 
-  ChevronDown, Github 
+  ChevronDown, AlertCircle 
 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext'; // Integration
 
 // 1. Define Interfaces
 interface FormData {
@@ -13,16 +15,19 @@ interface FormData {
   gender: string;
   password: string;
   confirmPassword: string;
+  role: string; // Added Role for Backend
   agreeToTerms: boolean;
 }
 
-// 2. Define Errors Interface (can range from empty string to undefined)
 interface FormErrors {
   [key: string]: string;
 }
 
 const Signup: React.FC = () => {
-  // 3. Typed State
+  const { register } = useAuth(); // Hook
+  const navigate = useNavigate();
+
+  // 2. Typed State
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
     email: '',
@@ -30,6 +35,7 @@ const Signup: React.FC = () => {
     gender: '',
     password: '',
     confirmPassword: '',
+    role: 'student', // Default
     agreeToTerms: false
   });
 
@@ -38,12 +44,9 @@ const Signup: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 4. Typed Event Handler
+  // 3. Typed Event Handler
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
-    // Type assertion is needed here because 'checked' does not exist on HTMLSelectElement
-    // We check the type first to be safe
     const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : undefined;
 
     setFormData({
@@ -52,12 +55,17 @@ const Signup: React.FC = () => {
     });
 
     // Clear error when user types
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
+    if (errors[name] || errors.api) {
+      setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          delete newErrors.api;
+          return newErrors;
+      });
     }
   };
 
-  // 5. Validation Logic
+  // 4. Validation Logic
   const validate = (): boolean => {
     let newErrors: FormErrors = {};
 
@@ -70,7 +78,6 @@ const Signup: React.FC = () => {
     }
 
     if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
-    
     if (!formData.gender) newErrors.gender = 'Please select a gender';
 
     if (!formData.password) {
@@ -91,29 +98,39 @@ const Signup: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 6. Submit Handler
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // 5. Submit Handler (Integrated)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (validate()) {
       setIsSubmitting(true);
-      // Simulate API call
-      setTimeout(() => {
-        alert('Account created successfully!');
-        setIsSubmitting(false);
-      }, 1500);
+      
+      // Call Backend via Context
+      const result = await register(
+          formData.fullName, 
+          formData.email, 
+          formData.password, 
+          formData.role // Pass role (student/instructor)
+      );
+
+      setIsSubmitting(false);
+
+      if (result.success) {
+        navigate('/dashboard'); // Or home '/'
+      } else {
+        setErrors({ api: result.message });
+      }
     }
   };
 
   return (
     <div className="min-h-screen flex bg-white font-sans">
       
-      {/* LEFT SIDE: Branding (Hidden on mobile) */}
+      {/* LEFT SIDE: Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-[#0F172A] relative flex-col justify-between p-12 overflow-hidden">
-        {/* Background Decor */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[100px] translate-x-1/3 -translate-y-1/3"></div>
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[100px] -translate-x-1/3 translate-y-1/3"></div>
 
-        {/* Logo */}
+          <Link to="/">
         <div className="relative z-10 flex items-center gap-2">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -122,8 +139,8 @@ const Signup: React.FC = () => {
           </div>
           <span className="text-2xl font-bold text-white tracking-tight">TechiGuru</span>
         </div>
+          </Link>
 
-        {/* Testimonial */}
         <div className="relative z-10 max-w-md">
           <h2 className="text-4xl font-bold text-white mb-6 leading-tight">
             Start your journey to <br/>
@@ -144,7 +161,6 @@ const Signup: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer Copyright */}
         <div className="relative z-10 text-slate-500 text-sm">
           © 2026 TechiGuru Inc.
         </div>
@@ -162,6 +178,18 @@ const Signup: React.FC = () => {
             <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Create Account</h1>
             <p className="text-slate-500">Enter your details below to get started.</p>
           </div>
+
+          {/* API Error Alert */}
+          {errors.api && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 rounded-lg bg-red-50 border border-red-100 flex items-start gap-3"
+            >
+              <AlertCircle size={20} className="text-red-500 mt-0.5 shrink-0"/>
+              <p className="text-sm text-red-600 font-medium">{errors.api}</p>
+            </motion.div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             
@@ -217,24 +245,43 @@ const Signup: React.FC = () => {
               </div>
             </div>
 
-            {/* Gender */}
-            <div>
-               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Gender <span className="text-red-500">*</span></label>
-               <div className="relative">
-                 <select
-                   name="gender"
-                   value={formData.gender}
-                   onChange={handleChange}
-                   className={`w-full pl-4 pr-10 py-3 bg-slate-50 border rounded-lg focus:ring-2 outline-none appearance-none transition-all text-slate-700 cursor-pointer ${errors.gender ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:border-purple-500 focus:ring-purple-200'}`}
-                 >
-                   <option value="">Select Gender</option>
-                   <option value="male">Male</option>
-                   <option value="female">Female</option>
-                   <option value="other">Other</option>
-                 </select>
-                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
-               </div>
-               {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+            {/* Gender & Role Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Gender <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                        <select
+                        name="gender"
+                        value={formData.gender}
+                        onChange={handleChange}
+                        className={`w-full pl-4 pr-10 py-3 bg-slate-50 border rounded-lg focus:ring-2 outline-none appearance-none transition-all text-slate-700 cursor-pointer ${errors.gender ? 'border-red-500 focus:ring-red-200' : 'border-slate-200 focus:border-purple-500 focus:ring-purple-200'}`}
+                        >
+                        <option value="">Select</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                    </div>
+                    {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
+                </div>
+
+                {/* Role Selection (Optional for Instructors) */}
+                <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">I am a</label>
+                    <div className="relative">
+                        <select
+                        name="role"
+                        value={formData.role}
+                        onChange={handleChange}
+                        className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:border-purple-500 focus:ring-purple-200 outline-none appearance-none transition-all text-slate-700 cursor-pointer"
+                        >
+                        <option value="student">Student</option>
+                        <option value="instructor">Instructor</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+                    </div>
+                </div>
             </div>
 
             {/* Passwords Grid */}
@@ -322,7 +369,7 @@ const Signup: React.FC = () => {
 
           {/* Footer Link */}
           <p className="text-center text-slate-500 mt-8 text-sm">
-            Already have an account? <a href="login" className="text-purple-600 font-bold hover:underline">Log in</a>
+            Already have an account? <Link to="/login" className="text-purple-600 font-bold hover:underline">Log in</Link>
           </p>
 
         </motion.div>

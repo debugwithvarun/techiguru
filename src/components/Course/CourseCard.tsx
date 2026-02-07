@@ -5,12 +5,12 @@ import { useNavigate } from 'react-router-dom';
 
 interface CourseProps {
   course: {
-    id: number;
+    id: string | number; // MongoDB uses string IDs
     title: string;
     category: string;
     students: number;
     rating: number;
-    price: string;
+    price: string | number;
     thumbnail: string;
     lessons: number;
     duration: string;
@@ -26,6 +26,21 @@ const CourseCard: React.FC<CourseProps> = ({ course, isInactive }) => {
     navigate(`/course/${course.id}`);
   };
 
+  // --- HELPER: Fix Broken URLs ---
+  const getThumbnailUrl = (url: string) => {
+    if (!url) return 'https://via.placeholder.com/600x400?text=No+Image';
+    
+    // Check if it's a local upload from the backend
+    if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
+      // Replace backslashes with forward slashes for URL compatibility
+      const cleanPath = url.replace(/\\/g, '/');
+      return `http://localhost:5000${cleanPath}`; 
+    }
+    
+    // Return external URLs (e.g. Unsplash) as is
+    return url;
+  };
+  console.log('CourseCard Rendered with:', getThumbnailUrl(course.thumbnail)  );
   return (
     <motion.div 
       whileHover={{ y: -8 }}
@@ -39,9 +54,15 @@ const CourseCard: React.FC<CourseProps> = ({ course, isInactive }) => {
         <motion.img 
           whileHover={{ scale: 1.05 }}
           transition={{ duration: 0.6 }}
-          src={course.thumbnail} 
+          // 👇 USES THE HELPER FUNCTION HERE
+          src={getThumbnailUrl(course.thumbnail)} 
           alt={course.title} 
           className="w-full h-full object-cover"
+          // Fallback if image fails to load entirely
+          onError={(e: any) => {
+            e.target.onerror = null; 
+            e.target.src = "https://via.placeholder.com/600x400?text=Image+Error";
+          }}
         />
         
         {/* Category Badge */}
@@ -62,11 +83,13 @@ const CourseCard: React.FC<CourseProps> = ({ course, isInactive }) => {
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-1 text-amber-500 font-bold text-sm">
             <Star size={16} fill="currentColor" />
-            <span>{course.rating}</span>
+            <span>{course.rating || 0}</span>
           </div>
-          {/* "Free" or "Open" Badge */}
-          <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider">
-            Open Access
+          {/* Price / Access Badge */}
+          <span className={`text-[10px] font-black px-2 py-1 rounded uppercase tracking-wider ${
+              isInactive ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-700'
+          }`}>
+            {isInactive ? 'Archived' : (course.price === 0 || course.price === 'Free' ? 'Free' : `$${course.price}`)}
           </span>
         </div>
 

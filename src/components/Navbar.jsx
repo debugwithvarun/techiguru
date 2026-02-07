@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   Search, ShoppingCart, ChevronDown, ChevronRight, 
-  LogIn, Menu, X, Globe, BookOpen, Smartphone, PlayCircle, PauseCircle
+  LogIn, Menu, X, Globe, BookOpen, Smartphone, PlayCircle, PauseCircle,
+  LayoutDashboard, LogOut, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext'; // Integration
 
 const Navbar = () => {
+  const { user, logout } = useAuth(); // Get real user state
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false); // For user profile dropdown
 
-  const location = useLocation();
   const hideNavbarPaths = ['/login', '/signup'];
 
   useEffect(() => {
@@ -22,31 +27,37 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const handleLogout = () => {
+      logout();
+      setProfileOpen(false);
+      setIsMobileMenuOpen(false);
+      navigate('/login');
+  };
+
   if (hideNavbarPaths.includes(location.pathname)) return null;
 
-  // --- UPDATED NAVIGATION STRUCTURE ---
+  // --- NAVIGATION DATA ---
   const navLinks = [
     { name: 'Home', path: '/', hasDropdown: false },
     { 
       name: 'Courses', 
       hasDropdown: true, 
       dropdownItems: [
-        { title: 'Full Stack Dev', path: '/courses/fullstack', icon: <Globe size={16}/> }, 
-        { title: 'AI & Machine Learning', path: '/courses/ai', icon: <BookOpen size={16}/> }, 
-        { title: 'Mobile Development', path: '/courses/mobile', icon: <Smartphone size={16}/> }
+        { title: 'Full Stack Dev', path: '/active-course', icon: <Globe size={16}/> }, 
+        { title: 'AI & Machine Learning', path: '/active-course', icon: <BookOpen size={16}/> }, 
+        { title: 'Mobile Development', path: '/active-course', icon: <Smartphone size={16}/> }
       ] 
     },
-    { name: 'About Us', path: '/about', hasDropdown: false },
     { 
       name: 'Training', 
       hasDropdown: true, 
       dropdownItems: [
-        // LINKED TO YOUR ROUTES HERE
         { title: 'Active Courses', path: '/active-course', icon: <PlayCircle size={16}/> }, 
-        { title: 'Inactive Courses', path: '/inactive-course', icon: <PauseCircle size={16}/> }
+        { title: 'Archived Courses', path: '/inactive-course', icon: <PauseCircle size={16}/> }
       ] 
     },
-    { name: 'Contact', path: '/contact', hasDropdown: false },
+    // Only show "Dashboard" link in main nav if user is instructor (optional preference)
+    ...(user?.role === 'instructor' ? [{ name: 'Dashboard', path: '/dashboard', hasDropdown: false }] : [])
   ];
 
   return (
@@ -54,7 +65,7 @@ const Navbar = () => {
       <nav 
         className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${
           scrolled 
-            ? 'bg-white/80 backdrop-blur-lg border-b border-gray-200 py-3 shadow-sm' 
+            ? 'bg-white/90 backdrop-blur-lg border-b border-gray-200 py-3 shadow-sm' 
             : 'bg-white border-b border-transparent py-5'
         }`}
       >
@@ -98,7 +109,7 @@ const Navbar = () => {
                   </button>
                 )}
 
-                {/* Desktop Dropdown */}
+                {/* Dropdown */}
                 <AnimatePresence>
                   {activeDropdown === link.name && link.dropdownItems && (
                     <motion.div
@@ -112,7 +123,7 @@ const Navbar = () => {
                         {link.dropdownItems.map((item, idx) => (
                           <Link
                             key={idx}
-                            to={item.path} // USING THE PATH HERE
+                            to={item.path}
                             className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-purple-50 hover:text-purple-700 transition-colors group"
                           >
                             <span className="text-purple-400 group-hover:text-purple-600">
@@ -154,20 +165,63 @@ const Navbar = () => {
               </button>
             </div>
 
-            {/* Auth State */}
-            {isLoggedIn ? (
-              <div className="flex items-center gap-4 pl-4 border-l border-gray-200">
-                <div className="relative cursor-pointer group">
+            {/* Auth State (Real Integration) */}
+            {user ? (
+              <div className="flex items-center gap-4 pl-4 border-l border-gray-200 relative">
+                
+                {/* Cart (Optional) */}
+                {/* <div className="relative cursor-pointer group hidden sm:block">
                   <div className="p-2 text-slate-600 hover:text-purple-600 transition-colors">
                     <ShoppingCart size={20}/>
                   </div>
                   <span className="absolute top-0 right-0 bg-red-500 text-[10px] font-bold text-white w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white">
-                    2
+                    0
                   </span>
-                </div>
-                <button onClick={() => setIsLoggedIn(false)} className="w-9 h-9 rounded-full border border-gray-200 overflow-hidden hover:ring-2 hover:ring-purple-400 transition-all">
-                  <img src="https://i.pravatar.cc/150?u=a" alt="profile" className="w-full h-full object-cover"/>
+                </div> */}
+
+                {/* Profile Dropdown Trigger */}
+                <button 
+                    onClick={() => setProfileOpen(!profileOpen)}
+                    className="flex items-center gap-2 hover:bg-gray-50 rounded-full pr-3 pl-1 py-1 transition-colors border border-transparent hover:border-gray-200"
+                >
+                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold border border-purple-200">
+                      {user.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700 hidden md:block max-w-[100px] truncate">{user.name}</span>
+                  <ChevronDown size={14} className="text-slate-400 hidden md:block"/>
                 </button>
+
+                {/* Profile Dropdown Menu */}
+                <AnimatePresence>
+                    {profileOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden py-1"
+                        >
+                            <div className="px-4 py-3 border-b border-gray-50">
+                                <p className="text-sm font-bold text-slate-800 truncate">{user.name}</p>
+                                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                            </div>
+                            
+                            {user.role === 'instructor' && (
+                                <Link to="/dashboard" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+                                    <LayoutDashboard size={16}/> Instructor Dashboard
+                                </Link>
+                            )}
+                            
+                            <Link to="/profile" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-600 hover:bg-purple-50 hover:text-purple-700 transition-colors">
+                                <User size={16}/> My Profile
+                            </Link>
+
+                            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-50 mt-1">
+                                <LogOut size={16}/> Sign Out
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
               </div>
             ) : (
               <div className="hidden sm:flex items-center gap-3">
@@ -231,19 +285,20 @@ const Navbar = () => {
                     {!link.hasDropdown ? (
                       <Link 
                         to={link.path} 
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="block py-3 text-base font-medium text-slate-600 hover:text-purple-600"
                       >
                         {link.name}
                       </Link>
                     ) : (
-                      <MobileDropdown link={link} />
+                      <MobileDropdown link={link} closeMenu={() => setIsMobileMenuOpen(false)} />
                     )}
                   </div>
                 ))}
               </div>
 
               <div className="p-6 bg-gray-50 mt-auto space-y-4">
-                {!isLoggedIn ? (
+                {!user ? (
                   <>
                     <Link to="/login" className="block w-full text-center py-3 rounded-lg border border-gray-200 font-semibold text-slate-600 hover:bg-white transition-colors">
                       Log In
@@ -253,8 +308,8 @@ const Navbar = () => {
                     </Link>
                   </>
                 ) : (
-                   <button onClick={() => setIsLoggedIn(false)} className="w-full py-3 rounded-lg border border-red-100 text-red-600 font-semibold bg-red-50">
-                      Sign Out
+                   <button onClick={handleLogout} className="w-full py-3 rounded-lg border border-red-100 text-red-600 font-semibold bg-red-50 flex items-center justify-center gap-2">
+                      <LogOut size={18}/> Sign Out
                    </button>
                 )}
               </div>
@@ -267,7 +322,7 @@ const Navbar = () => {
 };
 
 // Helper Component for Mobile Accordion
-const MobileDropdown = ({ link }) => {
+const MobileDropdown = ({ link, closeMenu }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -294,7 +349,8 @@ const MobileDropdown = ({ link }) => {
               {link.dropdownItems.map((item, idx) => (
                 <Link 
                   key={idx} 
-                  to={item.path} // USING PATH HERE TOO
+                  to={item.path} 
+                  onClick={closeMenu}
                   className="flex items-center gap-3 py-2 text-sm text-slate-500 hover:text-purple-600"
                 >
                   <span className="text-purple-400">{item.icon}</span>

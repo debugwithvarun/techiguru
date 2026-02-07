@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api', // Matches your backend port
+    // baseURL: 'http://localhost:5000/api', 
+    baseURL: 'https://techiguru-backend.onrender.com/api', // Matches your backend port
 });
 
 // --- REQUEST INTERCEPTOR ---

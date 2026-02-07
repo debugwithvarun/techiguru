@@ -21,7 +21,8 @@ interface CourseData { id?: string; title: string; description: string; price: s
 const getImageUrl = (url: string) => {
     if (!url) return 'https://via.placeholder.com/150?text=No+Image';
     if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
-        return `http://localhost:5000${url.replace(/\\/g, '/')}`;
+        // return `http://localhost:5000${url.replace(/\\/g, '/')}`;
+        return `https://techiguru-backend.onrender.com${url.replace(/\\/g, '/')}`;
     }
     return url;
 };

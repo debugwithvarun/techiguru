@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, BookOpen, PlusCircle, Video, 
   Settings, LogOut, Trash2, Edit2, Save, DollarSign, 
-  Users, Clock, BarChart3, Search, Filter, XCircle, 
-  User, Mail, Phone, Upload, Image as ImageIcon,
-  Loader, CheckCircle, AlertCircle, ChevronRight, MoreVertical, Layers, ArrowUpRight
+  Users, Clock, BarChart3, Search, XCircle, 
+  Mail, Image as ImageIcon, Loader, ChevronRight, 
+  Layers, Menu, X, Bell, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCourse } from '../context/CourseContext'; 
@@ -16,10 +16,20 @@ import { Link, useNavigate } from 'react-router-dom';
 interface VideoItem { id: number | string; title: string; videoKey: string; duration: string; isFree: boolean; }
 interface TopicItem { id: number | string; title: string; videos: VideoItem[]; }
 interface CourseData { id?: string; title: string; description: string; price: string; category: string; status: 'Active' | 'Inactive' | 'Draft'; thumbnail: string | null; topics: TopicItem[]; }
-interface CourseListItem { _id: string; title: string; studentsEnrolled: number; rating: number; status: 'Active' | 'Inactive' | 'Draft'; price: number; thumbnail?: { url: string }; category?: string; }
 
-// --- SIDEBAR COMPONENT ---
-const Sidebar = ({ activeTab, setActiveTab, onLogout }: any) => {
+// --- HELPER: THUMBNAIL URL ---
+const getImageUrl = (url: string) => {
+    if (!url) return 'https://via.placeholder.com/150?text=No+Image';
+    if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
+        return `http://localhost:5000${url.replace(/\\/g, '/')}`;
+    }
+    return url;
+};
+
+// --- COMPONENTS ---
+
+// 1. SIDEBAR COMPONENT (Responsive)
+const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) => {
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'active_courses', label: 'My Courses', icon: BookOpen },
@@ -27,34 +37,41 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }: any) => {
     { id: 'profile', label: 'Settings', icon: Settings }, 
   ];
 
-  return (
-    <div className="hidden lg:flex w-72 bg-[#0F172A] min-h-screen text-slate-400 flex-col fixed left-0 top-0 z-50 border-r border-slate-800">
-      <Link to="/">
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      {/* Logo Area */}
       <div className="h-24 flex items-center px-8 border-b border-slate-800/50">
-        <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-violet-900/50 shrink-0">T</div>
-        <span className="ml-4 text-xl font-bold text-white tracking-tight">TutorPanel</span>
-      </div>
+        <Link to="/" className="flex items-center gap-4 group">
+          <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-violet-900/50 group-hover:scale-105 transition-transform">T</div>
+          <span className="text-xl font-bold text-white tracking-tight">TutorPanel</span>
         </Link>
+        {/* Mobile Close Button */}
+        <button onClick={onClose} className="lg:hidden ml-auto text-slate-400 hover:text-white">
+          <X size={24} />
+        </button>
+      </div>
 
-      <nav className="flex-1 px-4 py-8 space-y-2">
+      {/* Navigation */}
+      <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => setActiveTab(item.id)}
+            onClick={() => { setActiveTab(item.id); onClose(); }}
             className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden ${
               activeTab === item.id 
                 ? 'bg-violet-600 text-white shadow-xl shadow-violet-900/20' 
-                : 'hover:bg-slate-800/50 hover:text-white'
+                : 'hover:bg-slate-800/50 hover:text-white text-slate-400'
             }`}
           >
             <item.icon size={20} className={`relative z-10 transition-transform group-hover:scale-110 ${activeTab === item.id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
             <span className="font-medium text-sm relative z-10">{item.label}</span>
-            {activeTab === item.id && <motion.div layoutId="activeTab" className="absolute inset-0 bg-white/10" />}
+            {activeTab === item.id && <motion.div layoutId="activeTab" className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />}
           </button>
         ))}
       </nav>
 
-      <div className="p-6 border-t border-slate-800/50">
+      {/* Footer */}
+      <div className="p-6 border-t border-slate-800/50 bg-[#0B1120]">
         <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition-all group">
           <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
           <span className="font-medium text-sm">Sign Out</span>
@@ -62,19 +79,37 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }: any) => {
       </div>
     </div>
   );
+
+  return (
+    <>
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:block w-72 bg-[#0F172A] min-h-screen fixed left-0 top-0 z-50 border-r border-slate-800">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile Sidebar (Drawer) */}
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={onClose} 
+              className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 lg:hidden"
+            />
+            <motion.div 
+              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-72 bg-[#0F172A] z-50 lg:hidden shadow-2xl"
+            >
+              {sidebarContent}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
 };
 
-// --- HELPER: THUMBNAIL URL ---
-const getImageUrl = (url: string) => {
-    if (!url) return 'https://via.placeholder.com/150?text=No+Image';
-    // Ensure we handle both backslashes (Windows) and forward slashes
-    if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
-        return `http://localhost:5000${url.replace(/\\/g, '/')}`;
-    }
-    return url;
-};
-
-// --- COURSE BUILDER ---
+// 2. COURSE BUILDER
 const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) => void; onCancel: () => void; isSaving: boolean; }> = ({ initialData, onSave, onCancel, isSaving }) => {
   const [uploading, setUploading] = useState(false);
   const [courseData, setCourseData] = useState<CourseData>(() => {
@@ -105,7 +140,7 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
     }
   };
 
-  // Curriculum Handlers
+  // Simplified Curriculum Handlers for brevity
   const handleAddTopic = () => setCourseData(prev => ({ ...prev, topics: [...prev.topics, { id: Date.now(), title: '', videos: [] }] }));
   const handleAddVideo = (tId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: [...t.videos, { id: Date.now(), title: '', videoKey: '', duration: '', isFree: false }] } : t) }));
   const updateTopic = (id: number | string, val: string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === id ? { ...t, title: val } : t) }));
@@ -114,18 +149,18 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
   const deleteVideo = (tId: number | string, vId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: t.videos.filter(v => v.id !== vId) } : t) }));
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      {/* Header Bar */}
-      <div className="sticky top-4 z-40 bg-white/80 backdrop-blur-xl p-4 rounded-2xl border border-white shadow-sm flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20">
+      {/* Sticky Header */}
+      <div className="sticky top-20 lg:top-4 z-30 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-slate-200/60 shadow-lg shadow-slate-200/20 flex flex-col sm:flex-row justify-between items-center gap-4 transition-all">
         <div>
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
             {initialData ? <Edit2 className="text-violet-600" size={20}/> : <PlusCircle className="text-violet-600" size={20}/>}
-            {initialData ? 'Edit Course' : 'Create New Course'}
+            {initialData ? 'Edit Course' : 'Create Course'}
           </h2>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
-          <button onClick={onCancel} className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-semibold hover:bg-slate-50 transition-all">Cancel</button>
-          <button onClick={() => onSave(courseData)} disabled={isSaving || uploading} className="flex-1 sm:flex-none px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all flex items-center justify-center gap-2 disabled:opacity-70">
+          <button onClick={onCancel} className="flex-1 sm:flex-none px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 transition-all text-sm">Cancel</button>
+          <button onClick={() => onSave(courseData)} disabled={isSaving || uploading} className="flex-1 sm:flex-none px-6 py-2.5 bg-violet-600 text-white rounded-xl font-bold shadow-lg shadow-violet-200 hover:bg-violet-700 hover:shadow-violet-300 transition-all flex items-center justify-center gap-2 disabled:opacity-70 text-sm">
             {isSaving ? <Loader size={18} className="animate-spin"/> : <Save size={18}/>} Save
           </button>
         </div>
@@ -150,7 +185,7 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                         <>
                             <img src={getImageUrl(courseData.thumbnail)} alt="Cover" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="text-white text-xs font-bold bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Change Image</span>
+                                <span className="text-white text-xs font-bold bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Change</span>
                             </div>
                         </>
                     ) : (
@@ -163,21 +198,21 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                 </div>
 
                 <div className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Title</label>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Title</label>
                         <input type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-100 focus:border-violet-500 outline-none transition-all font-medium text-slate-700 placeholder:font-normal" placeholder="Course Title" value={courseData.title} onChange={(e) => setCourseData({...courseData, title: e.target.value})} />
                     </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Description</label>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Description</label>
                         <textarea className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-100 focus:border-violet-500 outline-none transition-all h-28 resize-none text-sm" value={courseData.description} onChange={(e) => setCourseData({...courseData, description: e.target.value})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Price ($)</label>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Price ($)</label>
                             <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none" value={courseData.price} onChange={(e) => setCourseData({...courseData, price: e.target.value})} />
                         </div>
-                        <div>
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Status</label>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Status</label>
                             <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none cursor-pointer" value={courseData.status} onChange={(e) => setCourseData({...courseData, status: e.target.value as any})}>
                                 <option value="Active">Active</option>
                                 <option value="Inactive">Inactive</option>
@@ -185,8 +220,8 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                             </select>
                         </div>
                     </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Category</label>
+                    <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Category</label>
                         <select className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-violet-500 outline-none cursor-pointer" value={courseData.category} onChange={(e) => setCourseData({...courseData, category: e.target.value})}>
                             {['Development', 'Business', 'Design', 'Marketing', 'IT & Software'].map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
@@ -202,7 +237,7 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                     <BookOpen size={20} className="text-violet-600"/> Curriculum
                 </h3>
                 <button onClick={handleAddTopic} className="flex items-center gap-2 text-violet-700 bg-violet-50 hover:bg-violet-100 px-4 py-2 rounded-xl font-bold text-sm transition-colors border border-violet-100">
-                    <PlusCircle size={16} /> Add Section
+                    <PlusCircle size={16} /> <span className="hidden sm:inline">Add Section</span>
                 </button>
             </div>
 
@@ -223,22 +258,25 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                         <button onClick={() => deleteTopic(topic.id)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={18} /></button>
                     </div>
 
-                    <div className="p-5 space-y-3">
+                    <div className="p-3 sm:p-5 space-y-3">
                         {topic.videos.map((video, vIndex) => (
-                            <div key={video.id} className="group flex flex-col md:flex-row gap-4 items-center p-3 rounded-2xl border border-slate-100 bg-white hover:border-violet-200 hover:bg-violet-50/30 transition-all shadow-sm">
-                                <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><Video size={18} /></div>
+                            <div key={video.id} className="group flex flex-col md:flex-row gap-4 items-start md:items-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-violet-200 hover:bg-violet-50/30 transition-all shadow-sm">
+                                <div className="p-2 bg-slate-50 text-slate-400 rounded-lg hidden md:block"><Video size={18} /></div>
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 w-full items-center">
                                     <input type="text" placeholder="Lesson Title" className="md:col-span-5 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm font-medium text-slate-700" value={video.title} onChange={(e) => updateVideo(topic.id, video.id, 'title', e.target.value)} />
                                     <div className="md:col-span-4 relative">
                                         <input type="text" placeholder="Video Key / URL" className="w-full pl-2 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 font-mono" value={video.videoKey} onChange={(e) => updateVideo(topic.id, video.id, 'videoKey', e.target.value)} />
                                     </div>
-                                    <input type="text" placeholder="00:00" className="md:col-span-3 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 text-center" value={video.duration} onChange={(e) => updateVideo(topic.id, video.id, 'duration', e.target.value)} />
+                                    <div className="md:col-span-3 flex items-center gap-2">
+                                        <input type="text" placeholder="00:00" className="w-full p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 text-center" value={video.duration} onChange={(e) => updateVideo(topic.id, video.id, 'duration', e.target.value)} />
+                                        <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:hidden"><XCircle size={18} /></button>
+                                    </div>
                                 </div>
-                                <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><XCircle size={18} /></button>
+                                <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors hidden md:block"><XCircle size={18} /></button>
                             </div>
                         ))}
-                        <button onClick={() => handleAddVideo(topic.id)} className="w-full py-3 mt-2 border border-dashed border-slate-200 rounded-xl text-slate-400 font-medium hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex items-center justify-center gap-2 text-sm">
-                            <PlusCircle size={16} /> Add Lesson
+                        <button onClick={() => handleAddVideo(topic.id)} className="w-full py-3 mt-2 border border-dashed border-slate-200 rounded-xl text-slate-400 font-medium hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex items-center justify-center gap-2 text-sm group">
+                            <PlusCircle size={16} className="group-hover:scale-110 transition-transform" /> Add Lesson
                         </button>
                     </div>
                 </motion.div>
@@ -251,17 +289,13 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
   );
 };
 
-// --- COURSE LIST (With Functional Search) ---
+// 3. COURSE LIST
 const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Filter Logic
-  const filteredCourses = courses.filter((course: any) => 
-    course.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCourses = courses.filter((course: any) => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white shadow-sm">
         <div>
             <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2 tracking-tight">
@@ -287,8 +321,8 @@ const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => 
           <div className="flex flex-col items-center justify-center p-20"><Loader className="animate-spin text-violet-600 mb-4" size={40}/><p className="text-slate-400 font-medium">Loading your content...</p></div>
       ) : (
           <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-xl shadow-slate-200/50">
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead className="bg-slate-50/80 border-b border-slate-100">
                     <tr>
                     {['Course Name', 'Price', 'Students', 'Status', 'Actions'].map((h) => (
@@ -348,7 +382,7 @@ const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => 
   );
 };
 
-// --- PROFILE SECTION ---
+// 4. PROFILE SECTION
 const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -374,7 +408,6 @@ const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
                   {isSaving ? <Loader size={18} className="animate-spin"/> : isEditing ? <><Save size={18}/> Save Changes</> : <><Edit2 size={18}/> Edit Profile</>}
               </button>
           </div>
-          {/* Decorative Circles */}
           <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
           <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-black/10 rounded-full blur-2xl pointer-events-none"></div>
       </div>
@@ -404,7 +437,7 @@ const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
   );
 };
 
-// --- DASHBOARD OVERVIEW ---
+// 5. DASHBOARD OVERVIEW
 const DashboardOverview: React.FC<{ courses: any[] }> = ({ courses }) => {
   const activeCount = courses.filter(c => c.status === 'Active').length;
   const draftCount = courses.filter(c => c.status === 'Draft').length;
@@ -422,12 +455,12 @@ const DashboardOverview: React.FC<{ courses: any[] }> = ({ courses }) => {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Hello, Instructor 👋</h1>
           <p className="text-slate-500 mt-2">Here's what's happening with your content today.</p>
         </div>
-        <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-2"><BarChart3 size={18}/> Analytics</button>
+        <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold shadow-xl hover:bg-slate-800 transition-all flex items-center gap-2 w-full sm:w-auto justify-center"><BarChart3 size={18}/> Analytics</button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -475,6 +508,7 @@ const TutorDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [editingCourse, setEditingCourse] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => { if(!authLoading && (!user || user.role !== 'instructor')) { /* Handle Redirect */ } }, [user, authLoading, navigate]);
   useEffect(() => { if(user?.role === 'instructor') fetchMyCourses(); }, [user]);
@@ -506,17 +540,45 @@ const TutorDashboard: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] font-sans text-slate-600 selection:bg-violet-200 selection:text-violet-900">
-      <Sidebar activeTab={activeTab} setActiveTab={(t: string) => { if(t !== 'add_course') setEditingCourse(null); setActiveTab(t); }} onLogout={() => { logout(); navigate('/login'); }} />
-      <div className="flex-1 lg:ml-72 p-6 lg:p-10 overflow-y-auto h-screen">
-        <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-            {activeTab === 'overview' ? <DashboardOverview courses={myCourses} /> :
-             activeTab === 'active_courses' ? <CourseList status="Active" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
-             activeTab === 'inactive_courses' ? <CourseList status="Draft" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
-             activeTab === 'add_course' ? <CourseBuilder initialData={editingCourse} onSave={handleSaveCourse} onCancel={() => setActiveTab('active_courses')} isSaving={isSaving} /> :
-             <ProfileSection user={user} />}
-          </motion.div>
-        </AnimatePresence>
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={(t: string) => { if(t !== 'add_course') setEditingCourse(null); setActiveTab(t); }} 
+        onLogout={() => { logout(); navigate('/login'); }} 
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col lg:pl-72 h-screen overflow-hidden">
+        
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-md border-b border-slate-200 z-30 sticky top-0">
+          <div className="flex items-center gap-3">
+             <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg"><Menu size={24}/></button>
+             <span className="font-bold text-slate-900 text-lg">TutorPanel</span>
+          </div>
+          <div className="w-8 h-8 bg-violet-100 rounded-full flex items-center justify-center text-violet-700 font-bold text-xs">{user?.name?.[0] || 'T'}</div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 scroll-smooth">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={activeTab} 
+              initial={{ opacity: 0, y: 10 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, y: -10 }} 
+              transition={{ duration: 0.3 }}
+              className="pb-20"
+            >
+              {activeTab === 'overview' ? <DashboardOverview courses={myCourses} /> :
+              activeTab === 'active_courses' ? <CourseList status="Active" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
+              activeTab === 'inactive_courses' ? <CourseList status="Draft" courses={myCourses} onEdit={handleEditCourse} onDelete={handleDelete} isLoading={courseLoading} /> :
+              activeTab === 'add_course' ? <CourseBuilder initialData={editingCourse} onSave={handleSaveCourse} onCancel={() => setActiveTab('active_courses')} isSaving={isSaving} /> :
+              <ProfileSection user={user} />}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );

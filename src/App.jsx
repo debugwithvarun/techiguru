@@ -38,7 +38,7 @@ function App() {
             
             {/* --- PUBLIC LAYOUT (Navbar + Footer) --- */}
             <Route element={<MainLayout />}>
-              <Route path="/" element={<Active />} /> {/* Default to Active Courses */}
+              <Route path="/" element={<Home />} /> {/* Default to Home Page */}
               <Route path="/contact" element={<Contact />} />
               <Route path="/active-course" element={<Active />} />
               <Route path="/inactive-course" element={<Inactive />} />

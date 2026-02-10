@@ -4,7 +4,7 @@ import {
   Settings, LogOut, Trash2, Edit2, Save, DollarSign, 
   Users, Clock, BarChart3, Search, XCircle, 
   Mail, Image as ImageIcon, Loader, ChevronRight, 
-  Layers, Menu, X, Bell, ExternalLink
+  Layers, Menu, X, Bell, ExternalLink, ChevronDown, ChevronUp, AlignLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCourse } from '../context/CourseContext'; 
@@ -13,7 +13,15 @@ import api from '../api/axios';
 import { Link, useNavigate } from 'react-router-dom';
 
 // --- TYPES ---
-interface VideoItem { id: number | string; title: string; videoKey: string; duration: string; isFree: boolean; }
+interface VideoItem { 
+    id: number | string; 
+    title: string; 
+    videoKey: string; 
+    duration: string; 
+    isFree: boolean;
+    description: string; // Added Description field
+}
+
 interface TopicItem { id: number | string; title: string; videos: VideoItem[]; }
 interface CourseData { id?: string; title: string; description: string; price: string; category: string; status: 'Active' | 'Inactive' | 'Draft'; thumbnail: string | null; topics: TopicItem[]; }
 
@@ -21,15 +29,111 @@ interface CourseData { id?: string; title: string; description: string; price: s
 const getImageUrl = (url: string) => {
     if (!url) return 'https://via.placeholder.com/150?text=No+Image';
     if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
-        // return `http://localhost:5000${url.replace(/\\/g, '/')}`;
         return `https://techiguru-backend.onrender.com${url.replace(/\\/g, '/')}`;
     }
     return url;
 };
 
-// --- COMPONENTS ---
+// --- SUB-COMPONENTS ---
 
-// 1. SIDEBAR COMPONENT (Responsive)
+// 1. VIDEO ROW COMPONENT (Extracted for better state management of "Expand/Collapse")
+const VideoRow: React.FC<{ 
+    video: VideoItem; 
+    topicId: number | string; 
+    updateVideo: (tId: number | string, vId: number | string, field: keyof VideoItem, val: any) => void;
+    deleteVideo: (tId: number | string, vId: number | string) => void;
+}> = ({ video, topicId, updateVideo, deleteVideo }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    return (
+        <div className="group rounded-2xl border border-slate-100 bg-white hover:border-violet-200 transition-all shadow-sm overflow-hidden">
+            {/* Top Row: Main Inputs */}
+            <div className="flex flex-col md:flex-row gap-3 items-start md:items-center p-3 sm:p-4 bg-white z-10 relative">
+                <div className="p-2 bg-slate-50 text-slate-400 rounded-lg hidden md:block">
+                    <Video size={18} />
+                </div>
+                
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-center">
+                    {/* Title Input */}
+                    <div className="md:col-span-5">
+                        <input 
+                            type="text" 
+                            placeholder="Lesson Title" 
+                            className="w-full p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm font-medium text-slate-700 placeholder:text-slate-400" 
+                            value={video.title} 
+                            onChange={(e) => updateVideo(topicId, video.id, 'title', e.target.value)} 
+                        />
+                    </div>
+                    
+                    {/* Video Key Input */}
+                    <div className="md:col-span-4 relative">
+                        <input 
+                            type="text" 
+                            placeholder="Video Key / URL" 
+                            className="w-full pl-2 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 font-mono placeholder:text-slate-300" 
+                            value={video.videoKey} 
+                            onChange={(e) => updateVideo(topicId, video.id, 'videoKey', e.target.value)} 
+                        />
+                    </div>
+
+                    {/* Duration & Actions */}
+                    <div className="md:col-span-3 flex items-center gap-2 justify-between md:justify-end">
+                        <input 
+                            type="text" 
+                            placeholder="00:00" 
+                            className="w-20 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 text-center placeholder:text-slate-300" 
+                            value={video.duration} 
+                            onChange={(e) => updateVideo(topicId, video.id, 'duration', e.target.value)} 
+                        />
+                        
+                        <div className="flex items-center gap-1 border-l border-slate-100 pl-2 ml-1">
+                            <button 
+                                onClick={() => setIsExpanded(!isExpanded)} 
+                                className={`p-1.5 rounded-lg transition-colors ${isExpanded ? 'bg-violet-100 text-violet-600' : 'text-slate-400 hover:text-violet-600 hover:bg-violet-50'}`}
+                                title="Add Description/Notes"
+                            >
+                                {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                            </button>
+                            <button 
+                                onClick={() => deleteVideo(topicId, video.id)} 
+                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete Lesson"
+                            >
+                                <XCircle size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Expandable Description Area */}
+            <AnimatePresence>
+                {isExpanded && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }} 
+                        animate={{ height: 'auto', opacity: 1 }} 
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-slate-50/50 border-t border-slate-100"
+                    >
+                        <div className="p-4 space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <AlignLeft size={14} /> Lesson Summary / Notes
+                            </div>
+                            <textarea 
+                                className="w-full p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-violet-100 focus:border-violet-500 outline-none text-sm text-slate-600 resize-y min-h-[100px]"
+                                placeholder="Describe what the students will learn in this video lesson..."
+                                value={video.description || ''}
+                                onChange={(e) => updateVideo(topicId, video.id, 'description', e.target.value)}
+                            />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
+
+// 2. SIDEBAR COMPONENT
 const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) => {
   const menuItems = [
     { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
@@ -46,7 +150,6 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) =>
           <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-violet-900/50 group-hover:scale-105 transition-transform">T</div>
           <span className="text-xl font-bold text-white tracking-tight">TutorPanel</span>
         </Link>
-        {/* Mobile Close Button */}
         <button onClick={onClose} className="lg:hidden ml-auto text-slate-400 hover:text-white">
           <X size={24} />
         </button>
@@ -71,7 +174,6 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) =>
         ))}
       </nav>
 
-      {/* Footer */}
       <div className="p-6 border-t border-slate-800/50 bg-[#0B1120]">
         <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-xl transition-all group">
           <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />
@@ -83,24 +185,14 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) =>
 
   return (
     <>
-      {/* Desktop Sidebar */}
       <div className="hidden lg:block w-72 bg-[#0F172A] min-h-screen fixed left-0 top-0 z-50 border-r border-slate-800">
         {sidebarContent}
       </div>
-
-      {/* Mobile Sidebar (Drawer) */}
       <AnimatePresence>
         {isOpen && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={onClose} 
-              className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 lg:hidden"
-            />
-            <motion.div 
-              initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-72 bg-[#0F172A] z-50 lg:hidden shadow-2xl"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-40 lg:hidden" />
+            <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed inset-y-0 left-0 w-72 bg-[#0F172A] z-50 lg:hidden shadow-2xl">
               {sidebarContent}
             </motion.div>
           </>
@@ -110,7 +202,7 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout, isOpen, onClose }: any) =>
   );
 };
 
-// 2. COURSE BUILDER
+// 3. COURSE BUILDER
 const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) => void; onCancel: () => void; isSaving: boolean; }> = ({ initialData, onSave, onCancel, isSaving }) => {
   const [uploading, setUploading] = useState(false);
   const [courseData, setCourseData] = useState<CourseData>(() => {
@@ -141,12 +233,17 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
     }
   };
 
-  // Simplified Curriculum Handlers for brevity
   const handleAddTopic = () => setCourseData(prev => ({ ...prev, topics: [...prev.topics, { id: Date.now(), title: '', videos: [] }] }));
-  const handleAddVideo = (tId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: [...t.videos, { id: Date.now(), title: '', videoKey: '', duration: '', isFree: false }] } : t) }));
+  
+  // Initialize new video with empty description
+  const handleAddVideo = (tId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: [...t.videos, { id: Date.now(), title: '', videoKey: '', duration: '', isFree: false, description: '' }] } : t) }));
+  
   const updateTopic = (id: number | string, val: string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === id ? { ...t, title: val } : t) }));
+  
   const updateVideo = (tId: number | string, vId: number | string, field: keyof VideoItem, val: any) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: t.videos.map(v => v.id === vId ? { ...v, [field]: val } : v) } : t) }));
+  
   const deleteTopic = (id: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.filter(t => t.id !== id) }));
+  
   const deleteVideo = (tId: number | string, vId: number | string) => setCourseData(prev => ({ ...prev, topics: prev.topics.map(t => t.id === tId ? { ...t, videos: t.videos.filter(v => v.id !== vId) } : t) }));
 
   return (
@@ -260,21 +357,14 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
                     </div>
 
                     <div className="p-3 sm:p-5 space-y-3">
-                        {topic.videos.map((video, vIndex) => (
-                            <div key={video.id} className="group flex flex-col md:flex-row gap-4 items-start md:items-center p-4 rounded-2xl border border-slate-100 bg-white hover:border-violet-200 hover:bg-violet-50/30 transition-all shadow-sm">
-                                <div className="p-2 bg-slate-50 text-slate-400 rounded-lg hidden md:block"><Video size={18} /></div>
-                                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 w-full items-center">
-                                    <input type="text" placeholder="Lesson Title" className="md:col-span-5 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm font-medium text-slate-700" value={video.title} onChange={(e) => updateVideo(topic.id, video.id, 'title', e.target.value)} />
-                                    <div className="md:col-span-4 relative">
-                                        <input type="text" placeholder="Video Key / URL" className="w-full pl-2 p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 font-mono" value={video.videoKey} onChange={(e) => updateVideo(topic.id, video.id, 'videoKey', e.target.value)} />
-                                    </div>
-                                    <div className="md:col-span-3 flex items-center gap-2">
-                                        <input type="text" placeholder="00:00" className="w-full p-2 bg-transparent border-b border-slate-200 focus:border-violet-500 outline-none text-sm text-slate-600 text-center" value={video.duration} onChange={(e) => updateVideo(topic.id, video.id, 'duration', e.target.value)} />
-                                        <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors md:hidden"><XCircle size={18} /></button>
-                                    </div>
-                                </div>
-                                <button onClick={() => deleteVideo(topic.id, video.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors hidden md:block"><XCircle size={18} /></button>
-                            </div>
+                        {topic.videos.map((video) => (
+                           <VideoRow 
+                               key={video.id} 
+                               video={video} 
+                               topicId={topic.id} 
+                               updateVideo={updateVideo} 
+                               deleteVideo={deleteVideo} 
+                           />
                         ))}
                         <button onClick={() => handleAddVideo(topic.id)} className="w-full py-3 mt-2 border border-dashed border-slate-200 rounded-xl text-slate-400 font-medium hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 transition-all flex items-center justify-center gap-2 text-sm group">
                             <PlusCircle size={16} className="group-hover:scale-110 transition-transform" /> Add Lesson
@@ -290,7 +380,7 @@ const CourseBuilder: React.FC<{ initialData?: any; onSave: (data: CourseData) =>
   );
 };
 
-// 3. COURSE LIST
+// 4. COURSE LIST
 const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const filteredCourses = courses.filter((course: any) => course.title.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -383,7 +473,7 @@ const CourseList: React.FC<any> = ({ courses, onEdit, onDelete, isLoading }) => 
   );
 };
 
-// 4. PROFILE SECTION
+// 5. PROFILE SECTION
 const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -438,7 +528,7 @@ const ProfileSection: React.FC<{ user: any }> = ({ user }) => {
   );
 };
 
-// 5. DASHBOARD OVERVIEW
+// 6. DASHBOARD OVERVIEW
 const DashboardOverview: React.FC<{ courses: any[] }> = ({ courses }) => {
   const activeCount = courses.filter(c => c.status === 'Active').length;
   const draftCount = courses.filter(c => c.status === 'Draft').length;
@@ -517,18 +607,50 @@ const TutorDashboard: React.FC = () => {
   const handleEditCourse = (course: any) => {
     // Map backend data to frontend builder structure
     const mapped = {
-        id: course._id, title: course.title, description: course.description, price: course.price, category: course.category, status: course.status, thumbnail: course.thumbnail?.url,
-        topics: course.sections?.map((sec: any) => ({ id: sec._id || Date.now(), title: sec.title, videos: sec.lessons?.map((les: any) => ({ id: les._id, title: les.title, videoKey: les.videoKey, duration: les.videoDuration?.toString(), isFree: les.isFree })) || [] })) || []
+        id: course._id, 
+        title: course.title, 
+        description: course.description, 
+        price: course.price, 
+        category: course.category, 
+        status: course.status, 
+        thumbnail: course.thumbnail?.url,
+        topics: course.sections?.map((sec: any) => ({ 
+            id: sec._id || Date.now(), 
+            title: sec.title, 
+            videos: sec.lessons?.map((les: any) => ({ 
+                id: les._id, 
+                title: les.title, 
+                videoKey: les.videoKey, 
+                duration: les.videoDuration?.toString(), 
+                isFree: les.isFree,
+                description: les.description || '' // Map existing description
+            })) || [] 
+        })) || []
     };
-    setEditingCourse(mapped); setActiveTab('add_course');
+    setEditingCourse(mapped); 
+    setActiveTab('add_course');
   };
 
   const handleSaveCourse = async (data: CourseData) => {
     setIsSaving(true);
+    // Construct payload ensuring description is included
     const payload = {
-        title: data.title, description: data.description, price: Number(data.price), category: data.category, status: data.status,
+        title: data.title, 
+        description: data.description, 
+        price: Number(data.price), 
+        category: data.category, 
+        status: data.status,
         thumbnail: data.thumbnail ? { url: data.thumbnail } : undefined,
-        sections: data.topics.map((t) => ({ title: t.title, lessons: t.videos.map((v) => ({ title: v.title, type: 'video', videoKey: v.videoKey, videoDuration: parseInt(v.duration || '0') })) }))
+        sections: data.topics.map((t) => ({ 
+            title: t.title, 
+            lessons: t.videos.map((v) => ({ 
+                title: v.title, 
+                type: 'video', 
+                videoKey: v.videoKey, 
+                videoDuration: parseInt(v.duration || '0'),
+                description: v.description // Payload Update
+            })) 
+        }))
     };
     const result = editingCourse?.id ? await updateCourse(editingCourse.id, payload) : await createCourse(payload);
     setIsSaving(false);

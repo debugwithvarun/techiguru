@@ -34,7 +34,8 @@ const CourseCard: React.FC<CourseProps> = ({ course, isInactive }) => {
     if (url.startsWith('/uploads') || url.startsWith('\\uploads')) {
       // Replace backslashes with forward slashes for URL compatibility
       const cleanPath = url.replace(/\\/g, '/');
-      return `https://techiguru-backend.onrender.com${cleanPath}`; 
+      // return `https://techiguru-backend.onrender.com${cleanPath}`; 
+      return `http://52.66.253.146:5000/api${cleanPath}`; 
       // return `http://localhost:5000${cleanPath}`; 
     }
     
